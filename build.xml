@@ -13,6 +13,7 @@
   <target name="dist" depends="build">
     <mkdir dir="dist"/>
     <jar destfile="dist/alloy4.2.jar" basedir="." excludes="dist/**" manifest="META-INF/MANIFEST.MF"/>
+    <jar destfile="dist/alloy4.2tests.jar" basedir="." excludes="dist/**" manifest="META-INF/MANIFESTTESTS.MF"/>
   </target>
 
   <target name="all" depends="dist"/>
