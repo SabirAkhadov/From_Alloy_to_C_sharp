@@ -55,6 +55,7 @@ import edu.mit.csail.sdg.alloy4compiler.translator.A4SolutionWriter;
 import edu.mit.csail.sdg.alloy4compiler.translator.TranslateAlloyToKodkod;
 import edu.mit.csail.sdg.alloy4viz.StaticInstanceReader;
 import edu.mit.csail.sdg.alloy4viz.VizGUI;
+import edu.mit.csail.sdg.alloy4compiler.generator.TestGenerator;
 
 /** This helper method is used by SimpleGUI. */
 
@@ -457,6 +458,7 @@ final class SimpleReporter extends A4Reporter {
                 rep.tempfile=tempCNF;
                 cb(out, "bold", "Executing \""+cmd+"\"\n");
                 A4Solution ai=TranslateAlloyToKodkod.execute_commandFromBook(rep, world.getAllReachableSigs(), cmd, options);
+                TestGenerator.writeTest(ai, world, options.originalFilename, true);
                 if (ai==null) result.add(null);
                 else if (ai.satisfiable()) result.add(tempXML);
                 else if (ai.highLevelCore().a.size()>0) result.add(tempCNF+".core");

@@ -127,6 +127,7 @@ import edu.mit.csail.sdg.alloy4compiler.translator.A4Solution;
 import edu.mit.csail.sdg.alloy4compiler.translator.A4SolutionReader;
 import edu.mit.csail.sdg.alloy4compiler.translator.A4Tuple;
 import edu.mit.csail.sdg.alloy4compiler.translator.A4TupleSet;
+import edu.mit.csail.sdg.alloy4compiler.generator.CodeGenerator;
 import edu.mit.csail.sdg.alloy4viz.VizGUI;
 import edu.mit.csail.sdg.alloy4whole.SimpleReporter.SimpleCallback1;
 import edu.mit.csail.sdg.alloy4whole.SimpleReporter.SimpleTask1;
@@ -182,7 +183,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
 
     /** True if Alloy Analyzer should enable the new Implicit This name resolution. */
     private static final BooleanPref ImplicitThis = new BooleanPref("ImplicitThis");
-    
+
     /** True if Alloy Analyzer should not report models that overflow. */
     private static final BooleanPref NoOverflow = new BooleanPref("NoOverflow");
 
@@ -221,7 +222,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
 
     /** The unsat core minimization strategy. */
     private static final IntPref CoreMinimization = new IntPref("CoreMinimization",0,2,2);
-    
+
     /** The unsat core granularity. */
     private static final IntPref CoreGranularity = new IntPref("CoreGranularity",0,0,3);
 
@@ -921,6 +922,8 @@ public final class SimpleGUI implements ComponentListener, Listener {
             menuItem(runmenu, "Show Metamodel",         'M', 'M', doShowMetaModel());
             if (Version.experimental) menuItem(runmenu, "Show Parse Tree", 'P', doShowParseTree());
             menuItem(runmenu, "Open Evaluator", 'V', doLoadEvaluator());
+            runmenu.add(new JSeparator());
+            if (Version.experimental) menuItem(runmenu, "Generate C#", 'G', doGenerateCSharp());
         } finally {
             wrap = false;
         }
@@ -1095,6 +1098,30 @@ public final class SimpleGUI implements ComponentListener, Listener {
             world.showAsTree(this);
         }
         return null;
+    }
+
+    /** This method generates C# from Alloy. */
+    private Runner doGenerateCSharp() {
+      if (wrap) return wrapMe();
+      doRefreshRun();
+      OurUtil.enableAll(runmenu);
+      if (commands!=null) {
+        Module world = null;
+        try {
+          int resolutionMode = (Version.experimental && ImplicitThis.get()) ? 2 : 1;
+          A4Options opt = new A4Options();
+          opt.tempDirectory = alloyHome() + fs + "tmp";
+          opt.solverDirectory = alloyHome() + fs + "binary";
+          opt.originalFilename = Util.canon(text.get().getFilename());
+          world = CompUtil.parseEverything_fromFile(A4Reporter.NOP, text.takeSnapshot(), opt.originalFilename, resolutionMode);
+          CodeGenerator.writeCode(world, Util.canon(text.get().getFilename()), true, true);
+        } catch(Err er) {
+          text.shade(er.pos);
+          log.logRed(er.toString()+"\n\n");
+          return null;
+        }
+      }
+      return null;
     }
 
     /** This method displays the meta model. */
@@ -1360,7 +1387,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
         if (!wrap) CoreMinimization.set(speed.intValue());
         return wrapMe(speed);
     }
-    
+
     /** This method changes the granularity of the unsat core (larger integer means more granular). */
     private Runner doCoreGran(Integer gran) {
         if (!wrap) CoreGranularity.set(gran.intValue());
@@ -1395,7 +1422,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
         if (!wrap) NoOverflow.set(!NoOverflow.get());
         return wrapMe();
     }
-    
+
     /** This method toggles the "syntax highlighting" checkbox. */
     private Runner doOptSyntaxHighlighting() {
         if (!wrap) {
