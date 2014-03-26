@@ -12,15 +12,20 @@ import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
 
-public final class CodeGenerator {// comment test
+public final class CodeGenerator {
 
   private CodeGenerator(Iterable<Sig> sigs, SafeList<Func> funcs, String originalFilename, PrintWriter out, boolean checkContracts) throws Err {
+	  out.println("// This C# file is generated from .." + originalFilename);
+	  out.println();
+	  out.println();
 	  
+	  // just write all sigs without buil-in sigs
 	  for (Sig sig : sigs){
-		out.println("class public" + sig.toString()+ "{}");  
+		if (!sig.builtin){
+			out.println("class public " + sig.toString().substring(5)+ "{}");  // cut this\
+		}
 	  }
 	  
-	  out.println("print");
 	  out.close();
   }
 
