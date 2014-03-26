@@ -12,20 +12,24 @@ import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
 
+
 public final class CodeGenerator {
 
   private CodeGenerator(Iterable<Sig> sigs, SafeList<Func> funcs, String originalFilename, PrintWriter out, boolean checkContracts) throws Err {
+	  
+	  Visitor visitor = new Visitor(out);
+	  
+	  
 	  out.println("// This C# file is generated from .." + originalFilename);
 	  out.println();
+	  out.println("#undef CONTRACTS_FULL"); // so that the contracts  != null will not be violated after the creation
 	  out.println();
 	  
-	  // just write all sigs without buil-in sigs
 	  for (Sig sig : sigs){
-		if (!sig.builtin){
-			out.println("class public " + sig.toString().substring(5)+ "{}");  // cut this\
-		}
+		  if (!sig.builtin){
+			  sig.accept (visitor);
+		  }
 	  }
-	  
 	  out.close();
   }
 
