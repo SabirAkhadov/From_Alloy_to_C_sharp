@@ -12,9 +12,16 @@ import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
 
-public final class CodeGenerator {
+public final class CodeGenerator {// comment test
 
   private CodeGenerator(Iterable<Sig> sigs, SafeList<Func> funcs, String originalFilename, PrintWriter out, boolean checkContracts) throws Err {
+	  
+	  for (Sig sig : sigs){
+		out.println("class public" + sig.toString()+ "{}");  
+	  }
+	  
+	  out.println("print");
+	  out.close();
   }
 
   public static void writeCode(Module world, String originalFilename, boolean checkContracts, boolean saveInDist) throws Err {
