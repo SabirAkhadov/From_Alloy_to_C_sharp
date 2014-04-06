@@ -7,7 +7,6 @@ import java.io.PrintWriter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.SafeList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-
 import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
@@ -25,9 +24,21 @@ public final class CodeGenerator {
 	  out.println("#undef CONTRACTS_FULL"); // so that the contracts  != null will not be violated after the creation
 	  out.println();
 	  
-	  for (Sig sig : sigs){
-		  if (!sig.builtin){
-			  sig.accept (visitor);
+	  for (Sig s : sigs){
+		  if (!s.builtin){
+			  //here we first print all classes and then visit each field.
+			  out.println("class public " + s.toString().substring(5)+ " {");
+				if (!s.builtin)
+				{
+					try {
+						for (Sig.Field f : s.getFields()) {
+							f.accept(visitor);
+						}
+					} catch (Exception Err) {}
+					finally {}
+				}
+				out.println("}");
+			  
 		  }
 	  }
 	  out.close();
