@@ -29,7 +29,7 @@ public class Visitor extends VisitQuery<Object> {
 	@Override
 	public Object visit (Sig s) {
 		
-		out.print("public " + s.toString().substring(5) + " ");
+		out.print("\tpublic " + s.toString().substring(5) + " ");
 		return null;
 		
 	}
@@ -44,7 +44,7 @@ public class Visitor extends VisitQuery<Object> {
 			out.println(f.label + ";");
 		}
 		else { // its a tuple
-			out.print ("public ISet<Tuple<");
+			out.print ("\tpublic ISet<Tuple<");
 			toCSString (f.decl().expr.type().toString());
 			out.println(">> " + f.label + ";");
 		}

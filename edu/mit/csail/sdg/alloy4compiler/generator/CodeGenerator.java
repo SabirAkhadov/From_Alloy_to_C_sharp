@@ -23,22 +23,52 @@ public final class CodeGenerator {
 	  out.println();
 	  out.println("#undef CONTRACTS_FULL"); // so that the contracts  != null will not be violated after the creation
 	  out.println();
+	  out.println("using System;\nusing System.Linq;\nusing System.Collections.Generic;\nusing System.Diagnostics.Contracts;");
+	  out.println();
 	  
 	  for (Sig s : sigs){
 		  if (!s.builtin){
 			  //here we first print all classes and then visit each field.
-			  out.println("class public " + s.toString().substring(5)+ " {");
-				if (!s.builtin)
-				{
+			  if (s.isTopLevel()){
+				  if (s.isAbstract != null){
+					  out.println("abstract public class " + s.toString().substring(5)+ " {");
+				  }
+				  else {
+				  out.println("public class " + s.toString().substring(5)+ " {");
+				  
 					try {
 						for (Sig.Field f : s.getFields()) {
 							f.accept(visitor);
 						}
 					} catch (Exception Err) {}
-					finally {}
-				}
-				out.println("}");
-			  
+					finally {}	
+				  }
+			  }
+			  else { // this sig inherits   TODO: write the right superclass type
+				  out.println("public class "+ s.toString().substring(5)+ " : " + s.type().toString() + " {");
+				  try {
+						for (Sig.Field f : s.getFields()) {
+							f.accept(visitor);
+						}
+					} catch (Exception Err) {}
+					finally {}	
+				  if (s.isOne != null){//singleton
+					  String name = s.toString().substring(5);
+					  out.println("\tprivate static " + name + " instance;");
+					  out.println("\tprivate " + name + "() {}");
+					  out.println("\tpublic static " + name + " Instance {");
+					  out.println("\t\tget {");
+					  out.println("\t\t\tif (instance == null) {");
+					  out.println("\t\t\t\tinstance = new " + name + "();");
+					  out.println("\t\t\t}");
+					  out.println("\t\treturn instance;");
+					  out.println("\t\t}");
+					  out.println("\t}");
+				  }
+			  }
+			   
+			out.println("}");
+			out.println();
 		  }
 	  }
 	  out.close();
