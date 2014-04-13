@@ -7,6 +7,9 @@ import java.io.PrintWriter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.SafeList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4compiler.ast.Browsable;
+import edu.mit.csail.sdg.alloy4compiler.ast.Decl;
+import edu.mit.csail.sdg.alloy4compiler.ast.Expr;
 import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
@@ -44,8 +47,9 @@ public final class CodeGenerator {
 					finally {}	
 				  }
 			  }
-			  else { // this sig inherits   TODO: write the right superclass type
-				  out.println("public class "+ s.toString().substring(5)+ " : " + s.type().toString() + " {");
+			  else { // this sig inherits
+				 
+				  out.println("public class "+ s.toString().substring(5)+ " : " +s.getSubnodes().get(0).getHTML().substring(24) + " {");
 				  try {
 						for (Sig.Field f : s.getFields()) {
 							f.accept(visitor);
