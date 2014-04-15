@@ -5,14 +5,12 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 
 import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.alloy4.SafeList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4compiler.ast.Browsable;
-import edu.mit.csail.sdg.alloy4compiler.ast.Decl;
-import edu.mit.csail.sdg.alloy4compiler.ast.Expr;
-import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
+import edu.mit.csail.sdg.alloy4.SafeList;
+import edu.mit.csail.sdg.alloy4compiler.ast.ExprVar;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
+import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
 
 
 public final class CodeGenerator {
@@ -20,7 +18,7 @@ public final class CodeGenerator {
   private CodeGenerator(Iterable<Sig> sigs, SafeList<Func> funcs, String originalFilename, PrintWriter out, boolean checkContracts) throws Err {
 	  
 	  Visitor visitor = new Visitor(out);
-	  
+	  VisitorFunc visitorFunc = new VisitorFunc(out);
 	  
 	  out.println("// This C# file is generated from .." + originalFilename);
 	  out.println();
@@ -79,6 +77,45 @@ public final class CodeGenerator {
 			out.println();
 		  }
 	  }
+	  
+	  
+	  
+	  
+	  
+	  // functions
+	  String closeBracket = "";
+	  if (funcs.size() > 0) {
+		  out.println("public static class FuncClass {");
+		  closeBracket = "}";
+	  }
+	  for (Func f : funcs) {
+		  if (f.isPred) {
+			  out.print("\tpublic static bool ");
+			  out.print(f.label.substring(5));
+			  out.print(" (");
+			  for (int i = 0; i < f.params().size(); i++) {
+				  ExprVar p = f.params().get(i);
+				  String type = p.type().toString();
+				  type = type.substring(6, type.length()-1);
+				  out.print(type);
+				  out.print(" ");
+				  out.print(p.label);
+				  if (i+1 < f.params().size()) {
+					  out.print(", ");
+				  }
+			  }
+			  
+			  out.println(") {");
+			  out.print("\t\treturn ");
+			  f.getBody().accept(visitorFunc);
+			  out.println(";\n\t}");
+		  }
+		  else {
+			  //functions
+		  }
+	  }
+	  
+	  out.println(closeBracket);
 	  out.close();
   }
 
