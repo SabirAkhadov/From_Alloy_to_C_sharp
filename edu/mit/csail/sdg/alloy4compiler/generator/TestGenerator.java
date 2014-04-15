@@ -63,7 +63,7 @@ public final class TestGenerator {
 				  }
 				  for (Field f : t.sig(0).getFields()){
 					  if (f.type().arity() < 3){
-					  out.println("\t" + fieldName + "." + f.label + " = 0;");//TODO proper instances, not 0
+					  out.println("\t" + fieldName + "." + f.label + " = 0;");//TODO proper instances
 					  }
 				  }
 			  }
