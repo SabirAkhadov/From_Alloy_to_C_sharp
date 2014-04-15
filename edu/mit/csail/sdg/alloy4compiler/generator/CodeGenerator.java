@@ -35,6 +35,11 @@ public final class CodeGenerator {
 			  if (s.isTopLevel()){
 				  if (s.isAbstract != null){
 					  out.println("abstract public class " + s.toString().substring(5)+ " {");
+					  try {
+							for (Sig.Field f : s.getFields()) {
+								f.accept(visitor);
+							}
+						} catch (Exception Err) {}
 				  }
 				  else {
 				  out.println("public class " + s.toString().substring(5)+ " {");
@@ -44,10 +49,9 @@ public final class CodeGenerator {
 							f.accept(visitor);
 						}
 					} catch (Exception Err) {}
-					finally {}	
 				  }
 			  }
-			  else { // this sig inherits
+			  else { // this sig inherits and has subnodes.
 				 
 				  out.println("public class "+ s.toString().substring(5)+ " : " +s.getSubnodes().get(0).getHTML().substring(24) + " {");
 				  try {
