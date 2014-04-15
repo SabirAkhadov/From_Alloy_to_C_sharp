@@ -3,6 +3,13 @@ package edu.mit.csail.sdg.alloy4compiler.generator;
 import java.io.*;
 import java.lang.Runtime;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 
@@ -18,200 +25,304 @@ import edu.mit.csail.sdg.alloy4compiler.translator.A4Options;
 import edu.mit.csail.sdg.alloy4compiler.translator.A4Solution;
 import edu.mit.csail.sdg.alloy4compiler.translator.TranslateAlloyToKodkod;
 
-
 // to run the tests: java -jar alloy4.2tests.jar
 
 public final class CSharpGeneratorTests {
 
-  private static String filename = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\tests";
+	private static String filename = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\tests";
 
-  private static String answerCodeFile = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\answer";
+	private static String answerCodeFile = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\answer";
 
-  private static String answerTestFile = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\answer";
+	private static String answerTestFile = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\answer";
 
-  private static String alloyExt = ".als";
+	private static String alloyExt = ".als";
 
-  private static String codeExt = ".cs";
+	private static String codeExt = ".cs";
 
-  private static String testExt = ".tests.cs";
+	private static String testExt = ".tests.cs";
 
-  private static String codeCompExt = ".dll";
+	private static String codeCompExt = ".dll";
 
-  private static String testCompExt = ".tests.exe";
+	private static String testCompExt = ".tests.exe";
 
-  public static void main(String[] args) throws Exception {
+	enum ProcessResult {
+		SUCCESS, FAILURE, TIMEOUT
+	}
+	
+	public static void main(String[] args) throws Exception {
 
-    String path = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\";
-    // specify whether to define Code Contracts checking in the code file
-    boolean[] contracts = {false};
-    // specify whether the test should succeed
-    boolean[] expected = {false};
-    // specify the type of the error
-    String[] error = {"Assertion failed"};
-    // specify the code file
-    String[] code = {""};
-    // specify the test file
-    String[] test = {""};
+		String path = "..\\edu\\mit\\csail\\sdg\\alloy4compiler\\generator\\";
+		boolean[] contracts = {true,                    false,                   false,                   true,                    true,                     false,                    false,                    true,                     true,                     false,                    false,                    true};
+		boolean[] expected =  {false,                   true,                    true,                    false,                   true,                     true,                     true,                     true,                     false,                    true,                     true,                     true};
+		String[] error =      {"Invariant failed",      "",                      "",                      "Assertion failed",      "",                       "",                       "",                       "",                       "Postcondition failed",   "",                       "",                       ""};
+		String[] code =       {path + "tests2.als.sol", "",                      "",                      path + "tests8.als.sol", "",                       "",                       "",                       "",                       "",                       "",                       "",                       ""};
+		String[] test =       {"",                      path + "tests5.als.sol", path + "tests7.als.sol", "",                      path + "tests11.als.sol", path + "tests12.als.sol", path + "tests13.als.sol", path + "tests15.als.sol", path + "tests17.als.sol", path + "tests19.als.sol", path + "tests22.als.sol", path + "tests23.als.sol"};
 
-    // determines whether there were failures during the execution of the entire test suite
-    boolean okay = true;
+		// initial test suite
+		int[] testNumber = {2, 5, 7, 8, 11, 12, 13, 15, 17, 19, 22, 23};
 
-    // specify the number of tests here
-    for (int i = 0; i < 1; i++) {
-      try {
-        System.out.println("------- test" + i + " -------");
-        String f = filename + i + alloyExt;
-        String acf = answerCodeFile + i + codeExt;
-        String atf = answerTestFile + i + testExt;
+		int timeout = 20;
+		
+		int grade = 0;
 
-        // parse
-        CompModule world = world = CompUtil.parseEverything_fromFile(A4Reporter.NOP, null, f);
+		// specify the number of tests here
+		for (int index = 0; index < testNumber.length; index++) {
+			boolean okay = true;
+		    int i = testNumber[index];
+			try {
+				System.out.println("------- test" + i + " -------");
+				String f = filename + i + alloyExt;
+				String acf = answerCodeFile + i + codeExt;
+				String atf = answerTestFile + i + testExt;
 
-        // generate C# code
-        CodeGenerator.writeCode(world, f, contracts[i], false);
+				// parse
+				CompModule world = world = CompUtil.parseEverything_fromFile(A4Reporter.NOP, null, f);
 
-        // read code files to strings
-        File f1 = new File(f + codeExt);
-        File f2 = new File(acf);
+				// generate C# code
+				CodeGeneratorTask cgt = new CodeGeneratorTask(world, f, contracts[index], timeout);
+				boolean cgr = cgt.run();
+				System.out.println("Code generation: " + (cgr ? "SUCCESS" : "Failed"));
+				if (!cgr) {
+					okay = false;
+				}
 
-        BufferedReader b1 = new BufferedReader(new FileReader(f1));
-        BufferedReader b2 = new BufferedReader(new FileReader(f2));
+			    // compile code
+				TaskWithTimeout t = new TaskWithTimeout("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /R:System.Diagnostics.Contracts.dll /nologo /target:library /out:" + f + codeCompExt + " " + f + codeExt, timeout); 
+			    ProcessResult r = t.run();
+			    System.out.print("Code compilation: ");
+			    if (r == ProcessResult.SUCCESS) {
+			    	System.out.println("SUCCESS");
+			    }
+			    else {
+			    	okay = false;
+			    	if (r == ProcessResult.FAILURE) {
+			    		System.out.println("Failed");
+			    	}
+			    	else {
+			    		System.out.println("Timed out");
+			    	}
+			    }
 
-        String s1 = "", s2 = "", l = "";
-        while ((l = b1.readLine()) != null) {
-          s1 += l;
-        }
-        while ((l = b2.readLine()) != null) {
-          s2 += l;
-        }
+			    // generate C# tests
+			    ConstList<Command> cmds = world.getAllCommands();
+			    A4Solution ai = TranslateAlloyToKodkod.execute_commandFromBook(A4Reporter.NOP, world.getAllReachableSigs(), cmds.get(cmds.size() - 1), new A4Options());
+			    TestGeneratorTask tgt = new TestGeneratorTask(ai, world, f, timeout);
+				boolean tgr = tgt.run();
+				System.out.println("Test generation: " + (tgr ? "SUCCESS" : "Failed"));
+				if (!tgr) {
+					okay = false;
+				}
 
-        // compare code
-        System.out.print("Code generation: ");
-        if (s1.equals(s2)) {
-          System.out.println("SUCCESS");
-        } else {
-          okay = false;
-          System.out.println("Failed");
-        }
+			    // compile code and tests
+			    t = new TaskWithTimeout("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /R:System.Diagnostics.Contracts.dll /nologo /D:CONTRACTS_FULL /out:" + f + testCompExt + " " + f + codeExt + " " + f + testExt, timeout); 
+			    r = t.run();
+			    System.out.print("Code and test compilation: ");
+			    if (r == ProcessResult.SUCCESS) {
+			    	System.out.println("SUCCESS");
+			    }
+			    else {
+			    	okay = false;
+			    	if (r == ProcessResult.FAILURE) {
+			    		System.out.println("Failed");
+			    	}
+			    	else {
+			    		System.out.println("Timed out");
+			    	}
+			    }
+			    if (!code[index].equals("") || !test[index].equals("")) {
+			    	t = new TaskWithTimeout("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /R:System.Diagnostics.Contracts.dll /nologo /D:CONTRACTS_FULL /out:" + f + testCompExt + " " + (code[index].equals("") ? f : code[index]) + codeExt + " " + (test[index].equals("") ? f : test[index]) + testExt, timeout);
+			    	r = t.run();
+			    	System.out.print("Code and test compilation (modified): ");
+			    	if (r == ProcessResult.SUCCESS) {
+				    	System.out.println("SUCCESS");
+				    }
+				    else {
+				    	okay = false;
+				    	if (r == ProcessResult.FAILURE) {
+				    		System.out.println("Failed");
+				    	}
+				    	else {
+				    		System.out.println("Timed out");
+				    	}
+				    }
+			    }
 
-        // compile code
-        Runtime rt = Runtime.getRuntime();
-        Process pr = rt.exec("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /R:System.Diagnostics.Contracts.dll /nologo /target:library /out:" + f + codeCompExt + " " + f + codeExt);
-        System.out.print("Code compilation: ");
-        if (pr.waitFor() == 0) {
-          System.out.println("SUCCESS");
-        }
-        else {
-          okay = false;
-          System.out.println("Failed");
-        }
+			    // rewrite code and tests
+			    t = new TaskWithTimeout("\"C:\\Program Files (x86)\\Microsoft\\Contracts\\Bin\\ccrewrite.exe\" -nologo -nobox -throwOnFailure -allowRewritten \"-libPaths:C:\\Program Files (x86)\\Reference Assemblies\\Microsoft\\Framework\\.NETFramework\\v4.0;C:\\Program Files (x86)\\Reference Assemblies\\Microsoft\\Framework\\.NETFramework\\v4.0\\CodeContracts\" \"-libPaths:C:\\Program Files (x86)\\Microsoft\\Contracts\\Contracts\\.NETFramework\\v4.0\" \"-libPaths:CodeContracts\" " + f + testCompExt, timeout);
+		    	r = t.run();
+			    System.out.print("Code and test rewriting: ");
+			    if (r == ProcessResult.SUCCESS) {
+			    	System.out.println("SUCCESS");
+			    }
+			    else {
+			    	okay = false;
+			    	if (r == ProcessResult.FAILURE) {
+			    		System.out.println("Failed");
+			    	}
+			    	else {
+			    		System.out.println("Timed out");
+			    	}
+			    }
 
-        // generate C# tests
-        ConstList<Command> cmds = world.getAllCommands();
-        A4Solution ai = TranslateAlloyToKodkod.execute_commandFromBook(A4Reporter.NOP, world.getAllReachableSigs(), cmds.get(cmds.size() - 1), new A4Options());
-        TestGenerator.writeTest(ai, world, f, false);
+			    // execute code and tests
+			    t = new TaskWithTimeout(f + testCompExt, timeout);
+		    	r = t.run();
+			    System.out.print("Code and test execution: ");
+			    if (expected[index]) {
+			    	if (r == ProcessResult.SUCCESS) {
+			    		if (okay) {
+			    			grade++;
+			    		}
+				    	System.out.println("SUCCESS");
+				    }
+				    else {
+				    	if (r == ProcessResult.FAILURE) {
+				    		System.out.println("Failed");
+				    	}
+				    	else {
+				    		System.out.println("Timed out");
+				    	}
+				    }
+			    }
+			    else {
+			    	if (r == ProcessResult.SUCCESS) {
+			    		System.out.println("Failed");
+			    	}
+			    	else if (r == ProcessResult.TIMEOUT) {
+			    		System.out.println("Timed out");
+			    	}
+			    	else {
+			            if (t.errorOutput.indexOf(error[index]) != -1) {
+			            	if (okay) {
+			            		grade++;
+			            	}
+			            	System.out.println("SUCCESS");
+			            }
+			            else {
+			            	System.out.println("Failed");
+			            }
+			    	}
+			    }
+			}
+			catch (Throwable ex) {
+				System.out.println("Error running the tests.");
+			}
+		}
+		System.out.println("Grade: " + grade + "/" + testNumber.length);
+	}
+	
+	private static class TaskWithTimeout implements Callable<ProcessResult> {
+	    private String cmd;
+	    private int timeout;
+	    String errorOutput;
 
-        // read test files to strings
-        f1 = new File(f + testExt);
-        f2 = new File(atf);
+	    TaskWithTimeout(String cmd, int timeout) {
+	        this.cmd = cmd;
+	        this.timeout = timeout;
+	    }
 
-        b1 = new BufferedReader(new FileReader(f1));
-        b2 = new BufferedReader(new FileReader(f2));
+	    ProcessResult run() {
+	        ExecutorService threadsPool = Executors.newSingleThreadExecutor();
+	        ProcessResult res = ProcessResult.FAILURE;
+	        Future<ProcessResult> future = threadsPool.submit(this);
+	        try {
+	            res = future.get(timeout, TimeUnit.SECONDS);
+	        } catch (java.util.concurrent.TimeoutException te) {
+	            boolean bc = future.cancel(true);
+	            res = ProcessResult.TIMEOUT;
+	        } catch (InterruptedException e) { }
+	        catch (ExecutionException e) { }
+	        threadsPool.shutdownNow();
+	        return res;
+	    }
 
-        s1 = ""; s2 = "";
-        while ((l = b1.readLine()) != null) {
-          s1 += l;
-        }
-        while ((l = b2.readLine()) != null) {
-          s2 += l;
-        }
-
-        // compare tests
-        System.out.print("Test generation: ");
-        if (s1.equals(s2)) {
-          System.out.println("SUCCESS");
-        } else {
-          okay = false;
-          System.out.println("Failed");
-        }
-
-        // compile code and tests
-        pr = rt.exec("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /R:System.Diagnostics.Contracts.dll /nologo /D:CONTRACTS_FULL /out:" + f + testCompExt + " " + f + codeExt + " " + f + testExt);
-        System.out.print("Code and test compilation: ");
-        if (pr.waitFor() == 0) {
-          System.out.println("SUCCESS");
-        }
-        else {
-          okay = false;
-          System.out.println("Failed");
-        }
-        if (!code[i].equals("") || !test[i].equals("")) {
-          pr = rt.exec("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /R:System.Diagnostics.Contracts.dll /nologo /D:CONTRACTS_FULL /out:" + f + testCompExt + " " + (code[i].equals("") ? f : code[i]) + codeExt + " " + (test[i].equals("") ? f : test[i]) + testExt);
-          System.out.print("Code and test compilation (modified): ");
-          if (pr.waitFor() == 0) {
-            System.out.println("SUCCESS");
-          }
-          else {
-            okay = false;
-            System.out.println("Failed");
-          }
-        }
-
-        // rewrite code and tests
-        pr = rt.exec("\"C:\\Program Files (x86)\\Microsoft\\Contracts\\Bin\\ccrewrite.exe\" -nologo -nobox -throwOnFailure -allowRewritten \"-libPaths:C:\\Program Files (x86)\\Reference Assemblies\\Microsoft\\Framework\\.NETFramework\\v4.0;C:\\Program Files (x86)\\Reference Assemblies\\Microsoft\\Framework\\.NETFramework\\v4.0\\CodeContracts\" \"-libPaths:C:\\Program Files (x86)\\Microsoft\\Contracts\\Contracts\\.NETFramework\\v4.0\" \"-libPaths:CodeContracts\" " + f + testCompExt);
-        System.out.print("Code and test rewriting: ");
-        if (pr.waitFor() == 0) {
-          System.out.println("SUCCESS");
-        }
-        else {
-          okay = false;
-          System.out.println("Failed");
-        }
-
-        // execute code and tests
-        pr = rt.exec(f + testCompExt);
-        System.out.print("Code and test execution: ");
-        int exitCode = pr.waitFor();
-        if (expected[i]) {
-          if (exitCode == 0) {
-            System.out.println("SUCCESS");
-          }
-          else {
-            okay = false;
-            System.out.println("Failed");
-          }
-        }
-        else {
-          if (exitCode == 0) {
-            okay = false;
-            System.out.println("Failed");
-          }
-          else {
-            BufferedReader b = new BufferedReader(new InputStreamReader(pr.getErrorStream()));
-            String s = "";
-            while ((l = b.readLine()) != null) {
-              s += l;
-            }
-            if (s.indexOf(error[i]) != -1) {
-              System.out.println("SUCCESS");
-            }
-            else {
-              okay = false;
-              System.out.println("Failed");
-            }
-          }
-        }
-      }
-      catch (Throwable ex) {
-        okay = false;
-        System.out.println("Error running the tests.");
-      }
-    }
-    if (okay) {
-      System.out.println("------- SUCCESS -------");
-    }
-    else {
-      System.out.println("------- Failed -------");
-    }
-  }
+	    @Override
+	    public ProcessResult call() throws Exception {
+	        Runtime rt = Runtime.getRuntime();
+	        Process pr = rt.exec(cmd);
+	        int rv = pr.waitFor();
+	        if (rv == 0) {
+	            return ProcessResult.SUCCESS;
+	        }
+	        else {
+	        	BufferedReader b = new BufferedReader(new InputStreamReader(pr.getErrorStream()));
+				String s = "", l = "";
+				while ((l = b.readLine()) != null)
+			    {
+			        s += l;
+			    }
+				errorOutput = s;
+	            return ProcessResult.FAILURE;
+	        }
+	    }
+	}
+	
+	private static class CodeGeneratorTask implements Callable<Boolean> {
+		private CompModule world;
+		private String file;
+		private boolean contracts;
+	    private int timeout;
+		
+		CodeGeneratorTask(CompModule world, String file, boolean contracts, int timeout) {
+	        this.world = world;
+	        this.file = file;
+	        this.contracts = contracts;
+	        this.timeout = timeout;
+	    }
+		
+		boolean run() {
+	        ExecutorService threadsPool = Executors.newSingleThreadExecutor();
+	        Boolean res = false;
+	        Future<Boolean> future = threadsPool.submit(this);
+	        try {
+	            res = future.get(timeout, TimeUnit.SECONDS);
+	        } catch (java.util.concurrent.TimeoutException te) {
+	            boolean bc = future.cancel(true);
+	        } catch (InterruptedException e) { }
+	        catch (ExecutionException e) { }
+	        threadsPool.shutdownNow();
+	        return res;
+	    }
+		
+	    @Override
+	    public Boolean call() throws Exception {
+	    	CodeGenerator.writeCode(world, file, contracts, false);
+	    	return true;
+	    }
+	}
+	
+	private static class TestGeneratorTask implements Callable<Boolean> {
+		private CompModule world;
+		private String file;
+		private A4Solution ai;
+	    private int timeout;
+		
+	    TestGeneratorTask(A4Solution ai, CompModule world, String file, int timeout) {
+	        this.world = world;
+	        this.file = file;
+	        this.ai = ai;
+	        this.timeout = timeout;
+	    }
+		
+		boolean run() {
+	        ExecutorService threadsPool = Executors.newSingleThreadExecutor();
+	        Boolean res = false;
+	        Future<Boolean> future = threadsPool.submit(this);
+	        try {
+	            res = future.get(timeout, TimeUnit.SECONDS);
+	        } catch (java.util.concurrent.TimeoutException te) {
+	            boolean bc = future.cancel(true);
+	        } catch (InterruptedException e) { }
+	        catch (ExecutionException e) { }
+	        threadsPool.shutdownNow();
+	        return res;
+	    }
+		
+	    @Override
+	    public Boolean call() throws Exception {
+	    	TestGenerator.writeTest(ai, world, file, false);
+	    	return true;
+	    }
+	}
 }
+

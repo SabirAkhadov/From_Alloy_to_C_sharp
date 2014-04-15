@@ -21,10 +21,7 @@ public final class CodeGenerator {
 	  
 	  Visitor visitor = new Visitor(out);
 	  
-	  
 	  out.println("// This C# file is generated from .." + originalFilename);
-	  out.println();
-	  out.println("#undef CONTRACTS_FULL"); // so that the contracts  != null will not be violated after the creation
 	  out.println();
 	  out.println("using System;\nusing System.Linq;\nusing System.Collections.Generic;\nusing System.Diagnostics.Contracts;");
 	  out.println();
@@ -92,6 +89,7 @@ public final class CodeGenerator {
       else {
         f = originalFilename + ext;
       }
+
       File file = new File(f);
       if (file.exists()) {
         file.delete();

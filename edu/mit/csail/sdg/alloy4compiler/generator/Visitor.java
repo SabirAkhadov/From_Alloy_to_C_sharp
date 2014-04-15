@@ -33,7 +33,7 @@ public class Visitor extends VisitQuery<Object> {
 		if (s.toString().length() > 5){
 			out.print("\tpublic " + s.toString().substring(5) + " ");
 		}else{
-			out.print("\tpublic " + s.toString().toLowerCase() + " ");
+			out.print("\tpublic " + s.toString().toLowerCase() + " "); //it is probably int
 		}
 		return null;
 	}
