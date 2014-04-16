@@ -11,7 +11,7 @@ import edu.mit.csail.sdg.alloy4compiler.ast.Sig.Field;
 import edu.mit.csail.sdg.alloy4compiler.ast.VisitQuery;
 
 
-
+//test commit new rep
 public class VisitorFunc extends VisitQuery<Object> {
 	
 	private final PrintWriter out;
