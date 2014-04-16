@@ -15,6 +15,7 @@ public class Visitor extends VisitQuery<Object> {
 	private final PrintWriter out;
 	
 	private static boolean print = true;
+	private static boolean set;
 	
 	public Visitor(PrintWriter out) {
 		this.out = out;
@@ -25,9 +26,18 @@ public class Visitor extends VisitQuery<Object> {
 	@Override
 	public Object visit (Sig s) {
 		if (s.toString().length() > 5){
-			out.print("\tpublic " + s.toString().substring(5) + " ");
+			if (s.decl.expr.setOf().toString().substring(0, 10).contains("set")){ //this is a Hashset
+				
+				out.print("\tpublic ISet<" + s.toString().substring(5) + "> ");
+			}else{
+				out.print("\tpublic " + s.toString().substring(5) + " ");
+			}
 		}else{
-			out.print("\tpublic " + s.toString().toLowerCase() + " "); //it is probably int
+			if (s.setOf().toString().substring(0, 10).contains("set")){
+				out.print("\tpublic ISet<" + s.toString().toLowerCase() + "> ");
+			}else{
+				out.print("\tpublic " + s.toString().toLowerCase() + " "); //it is probably an int
+			}
 		}
 		return null;
 	}
@@ -50,35 +60,56 @@ public class Visitor extends VisitQuery<Object> {
 	 */
 	
 	
-	
 	@Override
 	public Object visit (Field f) throws Err {
 		Expr e = f.decl().expr;
 		int arity = f.type().arity();
-		if (arity < 3)
-		{
-			if (e.getDepth() > 3){ 
-				if (print){
-					print = false;
-					e.accept(this);
-					out.println(f.label + ";");
-					print = true;
-				}
-				else{
-					e.accept(this);
-				}
-			}else {
-				e.accept(this);
-				if (print){
-				out.println(f.label + ";");
+			if (arity < 3)
+			{
+				if (e.setOf().toString().substring(0, 10).contains("set")||set){
+					set = true;
+					if (e.getDepth() > 3){ 
+						if (print){
+							print = false;
+							e.accept(this);
+							out.println(f.label + ";");
+							set = false;
+							print = true;
+						}
+						else{
+							e.accept(this);
+							
+						}
+					}else {
+						out.print("\tpublic ISet<" + e.toString().substring(9) + "> ");
+						if (print){
+							out.println(f.label + ";");
+						}
+					}
+				}else{
+					if (e.getDepth() > 3){ 
+						if (print){
+							print = false;
+							e.accept(this);
+							out.println(f.label + ";");
+							print = true;
+						}
+						else{
+							e.accept(this);
+						}
+					}else {
+						e.accept(this);
+						if (print){
+						out.println(f.label + ";");
+						}
+					}
 				}
 			}
-		}
-		else { // its a tuple
-			out.print ("\tpublic ISet<Tuple<");
-			toCSString (f.decl().expr.type().toString());
-			out.println(">> " + f.label + ";");
-		}
+			else { // its a tuple
+				out.print ("\tpublic ISet<Tuple<");
+				toCSString (e.type().toString());
+				out.println(">> " + f.label + ";");
+			}
 		return null;
 	}
 	
