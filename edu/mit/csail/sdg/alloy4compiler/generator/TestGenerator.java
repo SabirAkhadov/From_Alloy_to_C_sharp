@@ -166,8 +166,6 @@ public final class TestGenerator {
       }
 
       PrintWriter out = new PrintWriter(new FileWriter(f, true));
-
-      System.out.println(f);
       new TestGenerator(solution, world.getAllReachableSigs(), world.getAllAssertions(), world.getAllCommands(), originalFilename, out);
     }
     catch (Throwable ex) {

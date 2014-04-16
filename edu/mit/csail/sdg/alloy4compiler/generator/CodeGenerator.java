@@ -195,11 +195,16 @@ public final class CodeGenerator {
 			  out.println(";\n\t}");
 		  }
 		  else {
-			  //functions
+			  //out.print("\t\t" + visitorFunc.argumentsNotNullContracts(args));
+			  //out.print("\t\t" + visitorFunc.returnValueNotNullContract(returnType));
+			  out.print("\n");
+			  f.getBody().accept(visitorFunc);
+			  out.println("\n\t}");
 		  }
 	  }
 	  
 	  out.println(closeBracket);
+	  out.println(visitorFunc.Closurefunction);
 	  out.close();
   }
 
