@@ -3,6 +3,7 @@ package edu.mit.csail.sdg.alloy4compiler.generator;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.List;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
@@ -11,6 +12,8 @@ import edu.mit.csail.sdg.alloy4compiler.ast.ExprVar;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
 import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
+import edu.mit.csail.sdg.alloy4compiler.ast.Sig.PrimSig;
+import edu.mit.csail.sdg.alloy4compiler.generator.VisitorFunc.Argument;
 
 
 public final class CodeGenerator {
@@ -86,29 +89,25 @@ public final class CodeGenerator {
 		  closeBracket = "}";
 	  }
 	  for (Func f : funcs) {
+		  out.print("\tpublic static ");
+		  String returnType = visitorFunc.parseReturnType(f); 
+		  List<Argument> args = visitorFunc.parseFuncParams(f);
+		  out.print(returnType);
+		  out.print(" ");
+		  out.print(f.label.substring(5));
+		  out.print("(");
+		  out.print(visitorFunc.joinArgumentList(args));
+		  out.println(") {");
 		  if (f.isPred) {
-			  out.print("\tpublic static bool ");
-			  out.print(f.label.substring(5));
-			  out.print(" (");
-			  for (int i = 0; i < f.params().size(); i++) {
-				  ExprVar p = f.params().get(i);
-				  String type = p.type().toString();
-				  type = type.substring(6, type.length()-1);
-				  out.print(type);
-				  out.print(" ");
-				  out.print(p.label);
-				  if (i+1 < f.params().size()) {
-					  out.print(", ");
-				  }
-			  }
-			  
-			  out.println(") {");
+			  //predicates
 			  out.print("\t\treturn ");
 			  f.getBody().accept(visitorFunc);
 			  out.println(";\n\t}");
 		  }
 		  else {
-			  //functions
+			  out.print("\t\t" + visitorFunc.argumentsNotNullContracts(args));
+			  out.print("\t\t" + visitorFunc.returnValueNotNullContract(returnType));
+			  out.println("\n\t}");
 		  }
 	  }
 	  
