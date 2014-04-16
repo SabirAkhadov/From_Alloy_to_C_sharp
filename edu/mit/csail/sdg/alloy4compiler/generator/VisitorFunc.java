@@ -7,6 +7,7 @@ import java.util.List;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprBinary;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary;
+import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary.Op;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprVar;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
@@ -18,6 +19,37 @@ import edu.mit.csail.sdg.alloy4compiler.ast.VisitQuery;
 //test commit new rep
 public class VisitorFunc extends VisitQuery<Object> {
 	private final PrintWriter out;
+	public String Closurefunction = "";
+	private String makeClosureFunction(String LType, String RType) {
+		StringBuilder out = new StringBuilder();
+		out.append("public static class Helper {\n");
+		out.append("\tpublic static ISet<Tuple<" + LType + ", " + RType + ">> Closure(ISet<Tuple<" + LType + ", " + RType + ">> set) {\n");
+		out.append("\t\tISet<Tuple<" + LType + ", " + RType + ">> newItems = new HashSet<Tuple<" + LType + ", " + RType + ">>();\n");
+		out.append("\t\tdo {\n");
+		out.append("\t\t\tnewItems.Clear();\n");
+		out.append("\t\t\tforeach (Tuple<" + LType + ", " + RType + "> tup in set)\n");
+		out.append("\t\t\t\tforeach (Tuple<" + LType + ", " + RType + "> tup2 in set)\n");
+		out.append("\t\t\t\t\tif (tup.Item2.Equals(tup2.Item1)) {\n");
+		out.append("\t\t\t\t\t\tTuple<int, int> tmp = new Tuple<" + LType + ", " + RType + ">(tup.Item1, tup2.Item2);\n");
+		out.append("\t\t\t\t\t\tif (!set.Contains(tmp))\n");
+		out.append("\t\t\t\t\t\t\tnewItems.Add(tmp);\n");
+		out.append("\t\t\t\t\t}\n");
+		out.append("\t\tset.UnionWith(newItems);\n");
+		out.append("\t\t} while (newItems.Count > 0);\n");
+		out.append("\t\treturn set;\n");
+		out.append("\t}\n\n");
+		out.append("\tpublic static ISet<Tuple<" + LType + ", " + RType + ">> RClosure(ISet<Tuple<" + LType + ", " + RType + ">> set) {\n");
+		out.append("\t\tISet<Tuple<int, int>> newItems = new HashSet<Tuple<" + LType + ", " + RType + ">>();\n");
+		out.append("\t\tforeach (Tuple<" + LType + ", " + RType + "> tup in set) {\n");
+		out.append("\t\t\tnewItems.Add(new Tuple<" + LType + ", " + RType + ">(tup.Item1, tup.Item1));\n");
+		out.append("\t\t\tnewItems.Add(new Tuple<" + LType + ", " + RType + ">(tup.Item2, tup.Item2));\n");
+		out.append("\t\t}\n");
+		out.append("\t\tset.UnionWith(newItems);\n");
+		out.append("\t\treturn Closure(set);\n");
+		out.append("\t}\n");
+		out.append("}\n");
+		return out.toString();
+	}
 	
 	public VisitorFunc(PrintWriter out) {
 		this.out = out;
@@ -120,7 +152,24 @@ public class VisitorFunc extends VisitQuery<Object> {
 	}
 	@Override 
 	public Object visit(ExprUnary x) throws Err {
-		x.sub.accept(this);
+		switch (x.op) {
+			case NOOP: x.sub.accept(this); break;
+			case RCLOSURE:
+			case CLOSURE:
+				if (x.op == Op.RCLOSURE)
+					out.print("\t\treturn Helper.RClosure(");
+				else
+					out.print("\t\treturn Helper.Closure(");
+				x.sub.accept(this);
+				out.print(");");
+				Closurefunction = makeClosureFunction(x.type().fold().get(0).get(0).label.substring(5), x.type().fold().get(0).get(1).label.substring(5));
+				break;
+			default:
+				out.print("unknown ExprUnary encounted:" + x.op + "\n");
+				break;
+		}
+		
+		
 		return null;
 	}
 	
