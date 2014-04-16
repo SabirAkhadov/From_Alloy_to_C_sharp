@@ -137,13 +137,28 @@ public class VisitorFunc extends VisitQuery<Object> {
 	
 	@Override 
 	public Object visit(ExprBinary x) throws Err {
+		switch (x.op) {
+			case NOT_EQUALS:
+			case IMPLIES:
+				out.print("!");
+				break;
+		}
+		if (x.op == ExprBinary.Op.NOT_EQUALS ) {
+			
+		}
 		out.print("(");
 		x.left.accept(this);
 		switch (x.op) {
-			case EQUALS: out.print(".equals"); break;
-			case JOIN: out.print("."); break;
+			case EQUALS:
+			case NOT_EQUALS:
+				out.print(".equals"); break;
 			case IMINUS: out.print(" - "); break;
 			case IPLUS: out.print(" + "); break;
+			case NOT_GT: out.print("<="); break;
+			case NOT_GTE: out.print("<"); break;
+			case NOT_LT: out.print(">="); break;
+			case NOT_LTE: out.print(">"); break;
+			case IMPLIES: out.print(" || "); break;
 			default: out.print(x.op); break;
 		}
 		x.right.accept(this);
@@ -152,7 +167,7 @@ public class VisitorFunc extends VisitQuery<Object> {
 	}
 	@Override 
 	public Object visit(ExprUnary x) throws Err {
-		switch (x.op) {
+		switch (x.op) { 
 			case NOOP: x.sub.accept(this); break;
 			case RCLOSURE:
 			case CLOSURE:
