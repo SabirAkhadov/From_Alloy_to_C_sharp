@@ -6,6 +6,7 @@ import java.util.List;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprBinary;
+import edu.mit.csail.sdg.alloy4compiler.ast.ExprConstant;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary.Op;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprVar;
@@ -18,7 +19,7 @@ import edu.mit.csail.sdg.alloy4compiler.ast.VisitQuery;
 
 //test commit new rep
 public class VisitorFunc extends VisitQuery<Object> {
-	private final PrintWriter out;
+	protected final PrintWriter out;
 	public String Closurefunction = "";
 	private String makeClosureFunction(String LType, String RType) {
 		StringBuilder out = new StringBuilder();
@@ -137,21 +138,26 @@ public class VisitorFunc extends VisitQuery<Object> {
 	
 	@Override 
 	public Object visit(ExprBinary x) throws Err {
+		boolean twoConsts = (x.left instanceof ExprConstant && x.right instanceof ExprConstant);
 		switch (x.op) {
 			case NOT_EQUALS:
 			case IMPLIES:
-				out.print("!");
+				if (!twoConsts)
+					out.print("!");
 				break;
-		}
-		if (x.op == ExprBinary.Op.NOT_EQUALS ) {
-			
+			case EQUALS:
+				//this is really weird but otherwise Alloy 0 == 1 should be translated to "true" - this is the hack to do it
+				if (twoConsts)
+					out.print("!");
+				break;
 		}
 		out.print("(");
 		x.left.accept(this);
 		switch (x.op) {
 			case EQUALS:
 			case NOT_EQUALS:
-				out.print(".equals"); break;
+				out.print(".Equals"); 
+				break;
 			case IMINUS: out.print(" - "); break;
 			case IPLUS: out.print(" + "); break;
 			case NOT_GT: out.print("<="); break;
