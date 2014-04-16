@@ -29,52 +29,66 @@ public final class TestGenerator {
 	  out.println("using System;\nusing System.Linq;\nusing System.Collections.Generic;\nusing System.Diagnostics.Contracts;");
 	  out.println();
 	  out.println("public static class Test {\n"+
-			  "public static void Main(string[] args) {");
+			  "\tpublic static void Main(string[] args) {\n\t// setup test data");
 	  
 	  
 	  for (Sig s : sigs){
 		  if (!s.builtin){
 			  String label = s.label.substring(5);
-			  out.println("\tvar " + label + "Set = new HashSet<"+label+">();");
+			  out.println("\t\tvar " + label + "Set = new HashSet<"+label+">();");
 			  for (A4Tuple t : solution.eval(s)){
-				  String [] fieldNames = t.toString().split("\\$");
-				  String fieldName = fieldNames[0] + fieldNames[1];
+				  String fieldName = getRidOfDollar (t.toString());
 				  String fieldLabel = t.type().toString().substring(6, t.type().toString().length()-1);
-				  
 				  if (!inititialisedFields.contains(fieldName))
-					  out.println("\t" + fieldLabel + " " + fieldName + ";");
+					  out.println("\t\t" + fieldLabel + " " + fieldName + ";");
 				  
 				  if (t.sig(0).isOne != null){
 					  if (inititialisedFields.contains(fieldName)){
-						  out.println("\t" + label + "Set.Add(" + fieldName+ ");");
+						  out.println("\t\t" + label + "Set.Add(" + fieldName+ ");");
 					  }
 					  else{
-						  out.println("\t" + label + "Set.Add(" + fieldName + " = " + fieldLabel + ".Instance);");
+						  out.println("\t\t" + label + "Set.Add(" + fieldName + " = " + fieldLabel + ".Instance);");
 						  inititialisedFields.add(fieldName);
 					  }
 				  }else{
 					  if (inititialisedFields.contains(fieldName)){
-						  out.println("\t" + label + "Set.Add(" + fieldName + "());");
+						  out.println("\t\t" + label + "Set.Add(" + fieldName + "());");
 					  }
 					  else{
-						  out.println("\t" + label + "Set.Add(" + fieldName + " = new " + label + "());");
+						  out.println("\t\t" + label + "Set.Add(" + fieldName + " = new " + label + "());");
 						  inititialisedFields.add(fieldName);
 					  }
 				  }
-				  for (Field f : t.sig(0).getFields()){
-					  if (f.type().arity() < 3){
-					  out.println("\t" + fieldName + "." + f.label + " = 0;");//TODO proper instances
-					  }
-				  }
 			  }
+			  for (Field f : s.getFields()){
+					 // if (f.type().arity() < 3){
+						  for (A4Tuple at : solution.eval(f)){
+							  String[] temp = at.toString().split("\\->");
+							  String oName = getRidOfDollar(temp[0]);
+							  String cName = getRidOfDollar(temp[1]);
+							  out.println("\t\t" + oName + "." + f.label + " = " + cName + ";");
+						  }
+				  }
 		  }
 	  }
-
 	  out.println();
-	  out.println(solution.toString());
-	  out.println();
+	  out.println("\t// check test data");
+	  for (Pair<String, Expr> aPair : assertions){
+		  //aPair.toString();// BelowOne
+		  out.println(aPair.b.toString());
+		  //out.println(aPair.b..toString());
+	  }
+	  out.println("Contract.Assert(");
+	  out.println("\t}");
 	  out.println("}");
 	  out.close();
+  }
+  
+  private String getRidOfDollar (String s){
+
+	  String [] fieldNames = s.toString().split("\\$");
+	  return fieldNames[0] + fieldNames[1];
+	  
   }
 
   public static void writeTest(A4Solution solution, Module world, String originalFilename, boolean saveInDist) throws Err {
