@@ -82,6 +82,7 @@ public class Visitor extends VisitQuery<Object> {
 						}
 					}else {
 						out.print("\tpublic ISet<" + e.toString().substring(9) + "> ");
+						set = false;
 						if (print){
 							out.println(f.label + ";");
 						}

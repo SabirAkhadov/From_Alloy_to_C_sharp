@@ -3,6 +3,8 @@ package edu.mit.csail.sdg.alloy4compiler.generator;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
@@ -11,6 +13,7 @@ import edu.mit.csail.sdg.alloy4compiler.ast.ExprVar;
 import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
 import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
+import edu.mit.csail.sdg.alloy4compiler.ast.Sig.Field;
 
 
 public final class CodeGenerator {
@@ -40,8 +43,49 @@ public final class CodeGenerator {
 				  out.println("public class " + s.toString().substring(5)+ " {");
 				  
 					try {
-						for (Sig.Field f : s.getFields()) {
+						for (Field f : s.getFields()) {
 							f.accept(visitor);
+						}
+						
+						//Invariants 
+						if (!s.getFields().isEmpty()){
+							out.println("\n\t[ContractInvariantMethod]");
+							out.println("\tprivate void ObjectInvariant() {");
+							List<Field> crossPFields = new ArrayList<Field>();
+							for (Field f : s.getFields()){
+								String fName = f.label;
+								if (f.type().arity() > 2){
+									String [] t = f.decl().expr.toString().split("this");
+									if (t.length > 3){
+										crossPFields.add(f);
+										out.print("\t\tContract.Invariant(");
+										out.print(fName);
+										out.println(" != null);");
+									}else{
+										out.println("\t\tContract.Invariant(" + fName + " != null && Contract.ForAll(" + fName + ", e1 => e1.Item1 != null && e1.Item2 != null));");
+									}
+								}else{
+									if (f.decl().expr.setOf().toString().substring(0, 10).contains("set")){ // its a set
+										out.println("\t\tContract.Invariant(Contract.ForAll(" + fName + " != null));"); //TODO I hope this is how it should look
+									}else{
+										out.print("\t\tContract.Invariant(");
+										out.print(fName);
+										out.println(" != null);");
+									}
+								}
+							}
+							for (Field f : crossPFields){
+								String cpName = f.label;
+								String str =  f.decl().expr.toString();
+								String [] lines = str.split("this . \\(this/| <: | |\\) -> |\\)");
+								String fName1 = lines[2];//floor
+								String fName2 = lines[5];//ceiling
+								out.println("\t\tContract.Invariant(" + cpName + " != null && " + fName1 + " != null && Contract.ForAll(" + cpName + ", e1 => " + 
+										 fName1 + ".Equals(e1.Item1)));");
+								out.println("\t\tContract.Invariant(" + cpName + " != null && " + fName2 + " != null && Contract.ForAll(" + cpName + ", e1 => " + 
+										 fName2 + ".Equals(e1.Item2)));");
+							}
+							out.println("\t}");
 						}
 					} catch (Exception Err) {}
 				  }
@@ -50,7 +94,7 @@ public final class CodeGenerator {
 				 
 				  out.println("public class "+ s.toString().substring(5)+ " : " +s.getSubnodes().get(0).getHTML().substring(24) + " {");
 				  try {
-						for (Sig.Field f : s.getFields()) {
+						for (Field f : s.getFields()) {
 							f.accept(visitor);
 						}
 					} catch (Exception Err) {}
@@ -68,6 +112,49 @@ public final class CodeGenerator {
 					  out.println("\t\t}");
 					  out.println("\t}");
 				  }
+
+				//Invariants 
+					if (!s.getFields().isEmpty()){
+						out.println("\n\t[ContractInvariantMethod]");
+						out.println("\tprivate void ObjectInvariant() {");
+						List<Field> crossPFields = new ArrayList<Field>();
+						for (Field f : s.getFields()){
+							String fName = f.label;
+							if (f.type().arity() > 2){
+								String [] t = f.decl().expr.toString().split("this");
+								if (t.length > 3){
+									crossPFields.add(f);
+									out.print("\t\tContract.Invariant(");
+									out.print(fName);
+									out.println(" != null);");
+								}else{
+									out.println("\t\tContract.Invariant(" + fName + " != null && Contract.ForAll(" + fName + ", e1 => e1.Item1 != null && e1.Item2 != null));");
+								}
+							}else{
+								if (f.decl().expr.setOf().toString().substring(0, 10).contains("set")){ // its a set
+									out.println("\t\tContract.Invariant(Contract.ForAll(" + fName + " != null));"); // I hope this is how it should look
+								}else{
+									out.print("\t\tContract.Invariant(");
+									out.print(fName);
+									out.println(" != null);");
+								}
+							}
+						}
+						for (Field f : crossPFields){
+							String cpName = f.label;
+							String str =  f.decl().expr.toString();
+							String [] lines = str.split("this . \\(this/| <: | |\\) -> |\\)");
+							String fName1 = lines[2];//floor
+							String fName2 = lines[5];//ceiling
+							out.println("\t\tContract.Invariant(" + cpName + " != null && " + fName1 + " != null && Contract.ForAll(" + cpName + ", e1 => " + 
+									 fName1 + ".Equals(e1.Item1)));");
+							out.println("\t\tContract.Invariant(" + cpName + " != null && " + fName2 + " != null && Contract.ForAll(" + cpName + ", e1 => " + 
+									 fName2 + ".Equals(e1.Item2)));");
+						}
+						out.println("\t}");
+					}
+				  
+				  
 			  }
 			   
 			out.println("}");
