@@ -62,15 +62,19 @@ public final class TestGenerator {
 					  }
 				  }
 			  }
+			  List <String> iniFields = new ArrayList<String>();
 			  for (Field f : s.getFields()){
 				  for (A4Tuple at : solution.eval(f)){
 					  if (at.arity() < 3){ // it is not a tuple
 						  String[] temp = at.toString().split("\\->");
 						  String oName = getRidOfDollar(temp[0]);
 						  String cName = getRidOfDollar(temp[1]);
+						  String fLabel = f.label;
 						  if (f.decl().expr.setOf().toString().substring(0, 10).contains("set")){ // this field is a set
-							 
+							 if (!iniFields.contains(oName + "." + fLabel)){
 							  out.println("\t\t" + oName + "." + f.label + " = new HashSet<" + f.type().toString().split("\\{this/|}|->this/")[2] + ">();");
+							  iniFields.add(oName + "." + fLabel);
+							 }
 							  out.println("\t\t" + oName +  "." + f.label + ".Add(" + cName + ");");
 						  }else{
 							  out.println("\t\t" + oName + "." + f.label + " = " + cName + ";");
@@ -83,7 +87,11 @@ public final class TestGenerator {
 						  String [] types = f.type().toString().split("\\{this/|}|->this/");
 						  String type1 = types[2];
 						  String type2 = types[3];
-						  out.println("\t\t" + oName + "." + f.label + " = new HashSet<Tuple<" + type1 + ", " + type2 +">>();");
+						  String fLabel = f.label;
+						  if (!iniFields.contains(oName + "." + fLabel)){
+							  out.println("\t\t" + oName + "." + f.label + " = new HashSet<Tuple<" + type1 + ", " + type2 +">>();");
+							  iniFields.add(oName + "." + fLabel);
+						  }
 						  out.println("\t\t" + oName +  "." + f.label + ".Add(Tuple.Create(" + cName1 + ", " + cName2 + "));");
 						  
 					  }

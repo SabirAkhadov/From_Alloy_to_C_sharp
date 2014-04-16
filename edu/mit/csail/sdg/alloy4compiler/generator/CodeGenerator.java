@@ -77,6 +77,7 @@ public final class CodeGenerator {
 							for (Field f : crossPFields){
 								String cpName = f.label;
 								String str =  f.decl().expr.toString();
+								out.println(str);
 								String [] lines = str.split("this . \\(this/| <: | |\\) -> |\\)");
 								String fName1 = lines[2];//floor
 								String fName2 = lines[5];//ceiling
