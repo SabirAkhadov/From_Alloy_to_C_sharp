@@ -148,10 +148,11 @@ public final class CodeGenerator {
 				out.println(";\n\t}");
 			} else {
 				out.print("\t\t" + visitorFunc.argumentsNotNullContracts(args));
-				out.print("\t\t"
+				out.println("\t\t"
 						+ visitorFunc.returnValueNotNullContract(returnType));
-				out.print("\n");
+				out.print("\t\treturn ");
 				f.getBody().accept(visitorFunc);
+				out.println(";");
 				out.println("\n\t}");
 			}
 		}
