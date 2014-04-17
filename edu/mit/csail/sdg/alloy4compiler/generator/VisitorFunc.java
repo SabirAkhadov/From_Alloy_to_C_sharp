@@ -24,12 +24,13 @@ import edu.mit.csail.sdg.alloy4compiler.ast.VisitQuery;
 //test commit new rep
 public class VisitorFunc extends VisitQuery<Object> {
 	protected final PrintWriter out;
-	public String Closurefunction = "";
+	public String SpecialFunctions = "";
 	public String specialPreConditions = "";
 	public String specialPostConditions = "";
+	public String returnType = "";
+	public final List<Argument> arguments = new ArrayList<Argument>();
 	private String makeClosureFunction(String LType, String RType) {
 		StringBuilder out = new StringBuilder();
-		out.append("public static class Helper {\n");
 		out.append("\tpublic static ISet<Tuple<" + LType + ", " + RType + ">> Closure(ISet<Tuple<" + LType + ", " + RType + ">> set) {\n");
 		out.append("\t\tISet<Tuple<" + LType + ", " + RType + ">> newItems = new HashSet<Tuple<" + LType + ", " + RType + ">>();\n");
 		out.append("\t\tdo {\n");
@@ -54,40 +55,146 @@ public class VisitorFunc extends VisitQuery<Object> {
 		out.append("\t\tset.UnionWith(newItems);\n");
 		out.append("\t\treturn Closure(set);\n");
 		out.append("\t}\n");
-		out.append("}\n");
 		return out.toString();
 	}
 	
+	private String[] getReturnType(Expr a, Expr b) {
+		String[] returnType = {"", "", ""};
+		ArgVisitor ava = new ArgVisitor();
+		ArgVisitor avb = new ArgVisitor();
+		try {
+			a.accept(ava);
+			b.accept(avb);
+		} catch (Err e) {
+			e.printStackTrace();
+		}
+		if ((ava.type2 == null && avb.type2 != null) || (ava.type2 != null && avb.type2 == null)) {
+			returnType[0] = "ISet<Object>";
+		}
+		else {
+			String type1 = getParent(ava.type1, avb.type1);
+			if (ava.type2 != null) {
+				String type2 = getParent(ava.type2, avb.type2);
+				returnType[0] = "ISet<Tuple<" + type1 + "," + type2 + ">>"; 
+			}
+			else {
+				returnType[0] = "ISet<" + type1 + ">";
+			}
+		}
+		returnType[1] = getType(ava);
+		returnType[2] = getType(ava);
+		if (!returnType[1].startsWith("ISet<")) {
+			returnType[1] = "ISet<" + returnType[1] + ">";
+		}
+		if (!returnType[2].startsWith("ISet<")) {
+			returnType[2] = "ISet<" + returnType[2] + ">";
+		}
+		return returnType;
+	}
+	
+	private String makeIntersetFunction(Expr a, Expr b) {
+		String[] types = getReturnType(a, b);
+		StringBuilder res = new StringBuilder();
+		res.append("\tpublic static " + types[0] + " MyIntersect(" + types[1] + " a, " + types[2] + " b) {\n");
+        res.append("\t\t" + types[0] + " res = new HashSet<" + types[0].substring(5, types[0].length()-1) + ">();\n");
+        res.append("\t\tforeach (" + types[1].substring(5, types[1].length()-1) + " tmp in a)\n");
+        res.append("\t\t\tres.Add(tmp);\n");
+        res.append("\t\tres.IntersectWith(b);\n");
+        res.append("\t\treturn res;\n");
+        res.append("\t}\n");
+        return res.toString();
+	}
+	private String makeMinusFunction(Expr a, Expr b) {
+		String[] types = getReturnType(a, b);
+		StringBuilder res = new StringBuilder();
+		res.append("\tpublic static " + types[1] + " MyMinus(" + types[1] + " a, " + types[2] + " b) {\n");
+        res.append("\t\t" + types[1] + " res = new HashSet<" + types[1].substring(5, types[1].length()-1) + ">();\n");
+        res.append("\t\tforeach (" + types[1].substring(5, types[1].length()-1) + " tmp in a)\n");
+        res.append("\t\t\tres.Add(tmp);\n");
+        res.append("\t\tres.ExceptWith(b);\n");
+        res.append("\t\treturn res;\n");
+        res.append("\t}\n");
+        return res.toString();
+	}
+	private String makePlusFunction(Expr a, Expr b) {
+		String[] types = getReturnType(a, b);
+		StringBuilder res = new StringBuilder();
+		res.append("\tpublic static " + types[0] + " MyPlus(" + types[1] + " a, " + types[2] + " b) {\n");
+        res.append("\t\t" + types[0] + " res = new HashSet<" + types[0].substring(5, types[0].length()-1) + ">();\n");
+        res.append("\t\tforeach (" + types[1].substring(5, types[1].length()-1) + " tmp in a)\n");
+        res.append("\t\t\tres.Add(tmp);\n");
+        res.append("\t\tres.UnionWith(b);\n");
+        res.append("\t\treturn res;\n");
+        res.append("\t}\n");
+        return res.toString();
+	}
+
+	
 	class ArgVisitor extends VisitQuery<Object> {
+		public String contractStr = null;
+		public boolean isSet = false;
+		public PrimSig type1 = null;
+		public PrimSig type2 = null;
+		
 		@Override
 		public Object visit(ExprUnary x) {
+			type1 = x.type().fold().get(0).get(0);
 			switch(x.op){
 				case SOME:
 				case SOMEOF:
-					return "ISet<";
+				case SETOF:
+					isSet = true;
+					return null;
+				default:
+					return null;
 			}
-			return null;
 		}
 		
 		@Override
 		public Object visit (ExprBinary x) {
+			type1 = ((ExprUnary)x.left).type().fold().get(0).get(0);
+			type2 = ((ExprUnary)x.right).type().fold().get(0).get(0);
 			switch (x.op) {
+				case ARROW:
+					isSet = true;
+					return null;
+				case SOME_ARROW_SOME:
+				case SOME_ARROW_ANY:
+					isSet = true;
+					return null;
+				case SOME_ARROW_LONE:
+					isSet = true;
+					contractStr = "__expr__.All(el => (__expr__.First().Item2 == null || __expr__.First().Item2.Equals(el.Item2)))";
+					return null;
+				case SOME_ARROW_ONE: 
+					isSet = true;
+					return null;
 				case ANY_ARROW_LONE:
-					return "__expr__.All(el => (__expr__.First().Item2 == null || __expr__.First().Item2.Equals(el.Item2)))";
+					isSet = true;
+					contractStr = "__expr__.All(el => (__expr__.First().Item2 == null || __expr__.First().Item2.Equals(el.Item2)))";
+					return null;
 				case ANY_ARROW_ONE:
-					return "__expr__.All(el => (__expr__.First().Item2.Equals(el.Item2)))";
+					isSet = true;
+					contractStr = "__expr__.All(el => (__expr__.First().Item2.Equals(el.Item2)))";
+					return null;
 				case ANY_ARROW_SOME:
+					isSet = true;
 					return null;
 				case ONE_ARROW_ANY:
+					isSet = true;
 				case ONE_ARROW_SOME:
-					return "__expr__.All(el => (__expr__.First().Item1.Equals(el.Item1)))";
-					
+					isSet = true;
+					contractStr = "__expr__.All(el => (__expr__.First().Item1.Equals(el.Item1)))";
+					return null;
 				case ONE_ARROW_LONE:
-					return "__expr__.All(el => (__expr__.First().Item1 == null || __expr__.First().Item2.Equals(el.Item1)))";
+					contractStr = "__expr__.All(el => (__expr__.First().Item1 == null || __expr__.First().Item2.Equals(el.Item1)))";
+					return null;
 				case ONE_ARROW_ONE:
-					return "__expr__.All(el => (__expr__.First().Item1.Equals(el.Item1) && __expr__.First().Item2.Equals(el.Item2)))";
+					contractStr = "__expr__.All(el => (__expr__.First().Item1.Equals(el.Item1) && __expr__.First().Item2.Equals(el.Item2)))";
+					return null;
+				default:
+					return null;
 			}
-			return null;
 		}
 	}
 	
@@ -115,106 +222,126 @@ public class VisitorFunc extends VisitQuery<Object> {
 	
 	
 	
-	public String argumentsNotNullContracts(List<Argument> args) {
+	public String argumentsNotNullContracts() {
 		StringBuilder res = new StringBuilder();
-		for (Argument arg : args) {
+		for (Argument arg : arguments ) {
 			if (!arg.isPrimitive) {
-				res.append("Contract.Requires(");
+				res.append("\t\tContract.Requires(");
 				res.append(arg.name);
 				res.append(" != null);\n");
 			}
 		}
 		return res.toString();
 	}
-	public String returnValueNotNullContract(String type) {
-		if (!isPrimitiveType(type)) {
-			return "Contract.Ensures(Contract.Result<" + type + ">() != null);";
+	public String returnValueNotNullContract() {
+		if (!isPrimitiveType(returnType)) {
+			return "\t\tContract.Ensures(Contract.Result<" + returnType + ">() != null);";
 		}
 		return "";
 	}
 
 	
-	public String joinArgumentList (List<Argument> args) {
+	public String joinArgumentList () {
 		StringBuilder out = new StringBuilder();
-		for (int i = 0; i < args.size(); i++) {
-			out.append(args.get(i).toString());
-			if (i < args.size() -1) {
+		for (int i = 0; i < arguments.size(); i++) {
+			out.append(arguments.get(i).toString());
+			if (i < arguments.size() -1) {
 				out.append(", ");
 			}
 		}
 		return out.toString();
 	}
 	
-	public String parseReturnType(Func f) {
+	public void parseReturnType(Func f) {
 		if (f.isPred) {
-			return "bool";
+			returnType = "bool";
+			return;
 		}
 		ArgVisitor argVisitor = new ArgVisitor();
-		String res = null;
 		try {
-			res = (String)f.returnDecl.accept(argVisitor);
+			f.returnDecl.accept(argVisitor);
 		} catch (Err e) {
 			e.printStackTrace();
 		}
-		if (f.returnDecl instanceof ExprUnary && res != null) {
-			return "ISet<" + parseSigListToType(f.returnDecl.type().fold().get(0)) + ">";
+		String type = getType(argVisitor);
+		if (argVisitor.contractStr != null) {
+			specialPostConditions += "\t\tContract.Ensures(" + argVisitor.contractStr.replace("__expr__", "Contract.Result<" + type + ">()") + ");\n";
 		}
-		String type = parseSigListToType(f.returnDecl.type().fold().get(0));
-		if (res != null) {
-			specialPostConditions += "\t\tContract.Ensures(" + res.replace("__expr__", "Contract.Result<" + type + ">()") + ");\n";
-		}
-		return type;
+		returnType = type;
 	}
+	
+	@Deprecated
 	public String parseSigListToType(List<PrimSig> types) {
-		
 		StringBuilder res = new StringBuilder();
 		if (types.size() == 2) {
-			res.append("ISet<Tuple<");
-			res.append(types.get(0).label.substring(5));
+			res.append("Tuple<");
+			if (types.get(0).equals(PrimSig.UNIV)) {
+				res.append("Object");
+			}
+			else {
+				res.append(types.get(0).label.substring(5));
+			}
 			res.append(", ");
-			res.append(types.get(1).label.substring(5));
-			res.append(">>");
+			if (types.get(1).equals(PrimSig.UNIV)) {
+				res.append("Object");
+			}
+			else {
+				res.append(types.get(1).label.substring(5));
+			}
+			res.append(">");
 		}
 		else {
-			res.append(types.get(0).label.substring(5));
+			if (types.get(0).equals(PrimSig.UNIV)) {
+				res.append("Object");
+			}
+			else {
+				res.append(types.get(0).label.substring(5));
+			}
 		}
 		return res.toString();
 	}
 	
-	public List<Argument> parseFuncParams(Func f) throws Err {
-		List<Argument> result = new ArrayList<Argument>();
-		List<String> isSome = new ArrayList<String>(); 
+	public String getType(ArgVisitor argVisitor) {
+		String type = "";
+		if (argVisitor.type1 != null && argVisitor.type2 != null) {
+			type = "Tuple<" + argVisitor.type1.label.substring(5) + "," + argVisitor.type2.label.substring(5) + ">";
+		}
+		else {
+			type = argVisitor.type1.label.substring(5);
+		}
+		if (argVisitor.isSet) {
+			type = "ISet<" + type + ">"; 
+		}
+		return type;
+	}
+	
+	
+	public void parseFuncParams(Func f) throws Err {
 		for (Decl decl : f.decls) {
-			String res = null;
 			ArgVisitor argVisitor = new ArgVisitor();
 			try {
-				res = (String)decl.expr.accept(argVisitor);
+				decl.expr.accept(argVisitor);
 			}
 			catch (Exception e){
 				e.printStackTrace();
 			}
-			if (decl.expr instanceof ExprUnary && res != null) {
-				for (ExprHasName name : decl.names) {
-					isSome.add(name.label);
+			String type = getType(argVisitor);
+			for (ExprHasName name : decl.names) {
+				arguments.add(new Argument(type, name.label));
+				if (argVisitor.contractStr != null) {
+					specialPreConditions += "\t\tContract.Requires(" + argVisitor.contractStr.replace("__expr__", name.label) + ");\n";
 				}
 			}
-			else if (res != null) {
-				for (ExprHasName name : decl.names) {
-					specialPreConditions += "\t\tContract.Requires(" + res.replace("__expr__", name.label) + ");\n";
-				}
-			}
+			
 		}
-		for (int i = 0; i < f.params().size(); i++) {
-			ExprVar p = f.params().get(i);
-			String type = parseSigListToType(p.type().fold().get(0));
-			if (isSome.contains(p.label)) {
-				result.add(new Argument("ISet<" + type + ">", p.label));
-			}
-			else {
-				result.add(new Argument(type, p.label));
-			}
+	}
+	
+	public String getParent(PrimSig a, PrimSig b) {
+		PrimSig parent = a.leastParent(b);
+		if (parent == PrimSig.UNIV) {
+			return "Object";
 		}
-		return result;
+		return parent.label.substring(5);
 	}
 	
 	@Override 
@@ -227,10 +354,22 @@ public class VisitorFunc extends VisitQuery<Object> {
 					out.print("!");
 				break;
 			case EQUALS:
-				//this is really weird but otherwise Alloy 0 == 1 should be translated to "true" - this is the hack to do it
 				if (twoConsts)
 					out.print("!");
 				break;
+			case INTERSECT:
+				SpecialFunctions += makeIntersetFunction(x.left, x.right);
+				out.print("Helper.MyIntersect");
+				break;
+			case MINUS:
+				SpecialFunctions += makeMinusFunction(x.left, x.right);
+				out.print("Helper.MyMinux");
+				break;
+			case PLUS:
+				SpecialFunctions += makePlusFunction(x.left, x.right);
+				out.print("Helper.MyPlus");
+				break;
+			default: break;
 		}
 		out.print("(");
 		x.left.accept(this);
@@ -246,6 +385,9 @@ public class VisitorFunc extends VisitQuery<Object> {
 			case NOT_LT: out.print(">="); break;
 			case NOT_LTE: out.print(">"); break;
 			case IMPLIES: out.print(" || "); break;
+			case INTERSECT: out.print(", "); break;
+			case MINUS: out.print(", "); break;
+			case PLUS: out.print(", ");
 			default: out.print(x.op); break;
 		}
 		x.right.accept(this);
@@ -255,7 +397,9 @@ public class VisitorFunc extends VisitQuery<Object> {
 	@Override 
 	public Object visit(ExprUnary x) throws Err {
 		switch (x.op) { 
-			case NOOP: x.sub.accept(this); break;
+			case NOOP: 
+				x.sub.accept(this); 
+				break;
 			case RCLOSURE:
 			case CLOSURE:
 				if (x.op == Op.RCLOSURE)
@@ -263,14 +407,13 @@ public class VisitorFunc extends VisitQuery<Object> {
 				else
 					out.print("Helper.Closure(");
 				x.sub.accept(this);
-				Closurefunction = makeClosureFunction(x.type().fold().get(0).get(0).label.substring(5), x.type().fold().get(0).get(1).label.substring(5));
+				out.print(")");
+				SpecialFunctions += makeClosureFunction(x.type().fold().get(0).get(0).label.substring(5), x.type().fold().get(0).get(1).label.substring(5));
 				break;
 			default:
 				out.print("unknown ExprUnary encounted:" + x.op + "\n");
 				break;
 		}
-		
-		
 		return null;
 	}
 	

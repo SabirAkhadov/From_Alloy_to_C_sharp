@@ -13,14 +13,12 @@ import edu.mit.csail.sdg.alloy4compiler.ast.Func;
 import edu.mit.csail.sdg.alloy4compiler.ast.Module;
 import edu.mit.csail.sdg.alloy4compiler.ast.Sig;
 import edu.mit.csail.sdg.alloy4compiler.ast.Sig.Field;
-import edu.mit.csail.sdg.alloy4compiler.generator.VisitorFunc.Argument;
 
 
 public final class CodeGenerator {
 	private CodeGenerator(Iterable<Sig> sigs, SafeList<Func> funcs, String originalFilename, PrintWriter out, boolean checkContracts) throws Err {
 
 		Visitor visitor = new Visitor(out);
-		VisitorFunc visitorFunc = new VisitorFunc(out);
 		out.println("// This C# file is generated from .." + originalFilename);
 		out.println();
 		if (!checkContracts) {
@@ -146,36 +144,43 @@ public final class CodeGenerator {
 			out.println("public static class FuncClass {");
 			closeBracket = "}";
 		}
+		String specialFunctions = "";
 		for (Func f : funcs) {
+			VisitorFunc visitorFunc = new VisitorFunc(out);
 			out.print("\tpublic static ");
-			String returnType = visitorFunc.parseReturnType(f);
-			List<Argument> args = visitorFunc.parseFuncParams(f);
-			out.print(returnType);
+			visitorFunc.parseReturnType(f);
+			visitorFunc.parseFuncParams(f);
+			out.print(visitorFunc.returnType);
 			out.print(" ");
 			out.print(f.label.substring(5));
 			out.print("(");
-			out.print(visitorFunc.joinArgumentList(args));
+			out.print(visitorFunc.joinArgumentList());
 			out.println(") {");
 			if (f.isPred) {
 				// predicates
 				out.print("\t\treturn ");
 				f.getBody().accept(visitorFunc);
-				out.println(";\n\t}");
+				out.println(";");
+				out.println("\t}");
 			} else {
-				out.print("\t\t" + visitorFunc.argumentsNotNullContracts(args));
-				out.println("\t\t"
-						+ visitorFunc.returnValueNotNullContract(returnType));
+				out.print(visitorFunc.argumentsNotNullContracts());
+				out.println(visitorFunc.returnValueNotNullContract());
 				out.print(visitorFunc.specialPostConditions);
 				out.print(visitorFunc.specialPreConditions);
 				out.print("\t\treturn ");
 				f.getBody().accept(visitorFunc);
 				out.println(";");
-				out.println("\n\t}");
+				out.println("\t}");
 			}
+			specialFunctions += visitorFunc.SpecialFunctions;
 		}
-
 		out.println(closeBracket);
-		out.println(visitorFunc.Closurefunction);
+		if (!"".equals(specialFunctions)) {
+			out.println("public static class Helper {");
+			out.print(specialFunctions);
+			out.println("}");
+		}
+		
 		out.close();
 	}
 
