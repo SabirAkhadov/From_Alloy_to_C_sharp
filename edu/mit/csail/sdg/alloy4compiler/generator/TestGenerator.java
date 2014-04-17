@@ -54,10 +54,10 @@ public final class TestGenerator {
 					  }
 				  }else{
 					  if (inititialisedFields.contains(fieldName)){
-						  out.println("\t\t" + label + "Set.Add(" + fieldName + "());");
+						  out.println("\t\t" + label + "Set.Add(" + fieldName + ");");
 					  }
 					  else{
-						  out.println("\t\t" + label + "Set.Add(" + fieldName + " = new " + label + "());");
+						  out.println("\t\t" + label + "Set.Add(" + fieldName + " = new " + fieldLabel + "());");
 						  inititialisedFields.add(fieldName);
 					  }
 				  }
@@ -101,48 +101,12 @@ public final class TestGenerator {
 	  }
 	  out.println();
 	  out.println("\t// check test data");
+	  
 	  for (Pair<String, Expr> aPair : assertions){
-		 if (aPair.b.toString().contains("0 = 1")) {
-			 out.println("\tContract.Assert(true, \"" + aPair.toString() + "\");");
-		 }else {
-
-			  out.print("\tContract.Assert(Contract.");
-			  
-			  String aName = aPair.toString();// BelowOne
-			  String ass = aPair.b.toString().substring(1); //assertion text
-			  String pNamesTypes [] [] = new String [100][2];
-			  int j = 0;
-			  String fLabel = "";
-			  for (Func f : aPair.b.findAllFunctions()){	
-				  fLabel = f.toString().substring(10);
-				  for (ExprVar p : f.params()){
-					  String pName = p.toString(); // gives m,n
-					  String setName = p.type().toString().substring(6, p.type().toString().length()-1) + "Set"; //gives ManSet
-					  pNamesTypes [j][0] = pName;
-					  pNamesTypes [j][1] = setName;
-					  j++;
-				  }
-			  }
-			  int fstQuant = ass.indexOf(pNamesTypes [0][0]); //gives the position of quantificator all, one etc.
-			  int sndQuant = ass.indexOf(pNamesTypes [1][0]);
-			  String sndQuantS = ass.substring(fstQuant+1, fstQuant + sndQuant);
-			  String fstQuantS = ass.substring(0, fstQuant);
-			  if (fstQuantS.contains("all")){
-				  out.print("ForAll(");
-			  }else if (fstQuantS.contains("one")){
-				  out.print("ForOne(");
-			  }
-			  out.print(pNamesTypes [0][1]+", ");
-			  out.print (pNamesTypes [0][0] + " => ");
-			  out.print(pNamesTypes [1][1]+".Where(");
-			  out.print (pNamesTypes [1][0] + " => FuncClass.");
-			  out.print(fLabel + "(");
-			  out.print(pNamesTypes [0][0] + ", " + pNamesTypes [1][0] + ")).Count() == ");
-			  if (sndQuantS.contains("one")){
-				  out.print("1), ");
-			  }
-			  out.println("\"" + aName + "\");");
-		 }
+		  out.print("\t\tContract.Assert(");
+		  VisitorAssertions visitorAssertions = new VisitorAssertions(out);
+		  aPair.b.accept(visitorAssertions);
+		  out.println(", \"" + aPair.a + "\");");
 	  }
 	  
 	  out.println("\t}");
