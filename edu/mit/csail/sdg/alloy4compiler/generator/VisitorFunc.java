@@ -362,7 +362,6 @@ public class VisitorFunc extends VisitQuery<Object> {
 			}
 		}
 		out.print(")");
-		System.out.println(x.op);
 		return null;
 	}
 	
