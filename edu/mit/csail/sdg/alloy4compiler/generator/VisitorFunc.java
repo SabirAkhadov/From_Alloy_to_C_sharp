@@ -11,6 +11,7 @@ import edu.mit.csail.sdg.alloy4compiler.ast.ExprBinary;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprCall;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprConstant;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprHasName;
+import edu.mit.csail.sdg.alloy4compiler.ast.ExprList;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary.Op;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprVar;
@@ -344,18 +345,34 @@ public class VisitorFunc extends VisitQuery<Object> {
 		return parent.label.substring(5);
 	}
 	
+	public Object visit(ExprList x) throws Err {
+		out.print("(");
+		for (int i = 0; i < x.args.size(); i++) {
+			Expr a = x.args.get(i);
+			a.accept(this);
+			if (i < x.args.size()-1) {
+				switch (x.op) {
+					case AND:
+						out.print(" && ");
+						break;
+					case OR:
+						out.print(" || ");
+						break;
+				}
+			}
+		}
+		out.print(")");
+		System.out.println(x.op);
+		return null;
+	}
+	
 	@Override 
 	public Object visit(ExprBinary x) throws Err {
-		boolean twoConsts = (x.left instanceof ExprConstant && x.right instanceof ExprConstant);
 		switch (x.op) {
 			case NOT_EQUALS:
 			case IMPLIES:
-				if (!twoConsts)
-					out.print("!");
-				break;
-			case EQUALS:
-				if (twoConsts)
-					out.print("!");
+			case NOT_IN:
+				out.print("!");
 				break;
 			case INTERSECT:
 				SpecialFunctions += makeIntersetFunction(x.left, x.right);
@@ -372,11 +389,24 @@ public class VisitorFunc extends VisitQuery<Object> {
 			default: break;
 		}
 		out.print("(");
-		x.left.accept(this);
+		switch (x.op) {
+			case IN:
+			case NOT_IN:
+				x.right.accept(this);
+				break;
+			default:
+				x.left.accept(this);
+				break;
+		}
+		
 		switch (x.op) {
 			case EQUALS:
 			case NOT_EQUALS:
-				out.print(".Equals"); 
+				out.print(".Equals("); 
+				break;
+			case NOT_IN:
+			case IN: 
+				out.print(".Contains("); 
 				break;
 			case IMINUS: out.print(" - "); break;
 			case IPLUS: out.print(" + "); break;
@@ -384,14 +414,33 @@ public class VisitorFunc extends VisitQuery<Object> {
 			case NOT_GTE: out.print("<"); break;
 			case NOT_LT: out.print(">="); break;
 			case NOT_LTE: out.print(">"); break;
-			case IMPLIES: out.print(" || "); break;
+			case IMPLIES: out.print(") || ("); break;
 			case INTERSECT: out.print(", "); break;
 			case MINUS: out.print(", "); break;
 			case PLUS: out.print(", ");
+			case AND: out.print(" && ");
+			case OR: out.print(" || ");
+			
 			default: out.print(x.op); break;
 		}
-		x.right.accept(this);
+		switch (x.op) {
+			case IN:
+			case NOT_IN:
+				x.left.accept(this);
+				break;
+			default:
+				x.right.accept(this);
+				break;
+		}
 		out.print(")");
+		switch (x.op) {
+			case EQUALS:
+			case NOT_EQUALS:
+			case NOT_IN:
+			case IN:
+				out.print(")");
+				break;
+		}
 		return null;
 	}
 	@Override 
