@@ -79,6 +79,9 @@ public final class CodeGenerator {
 								String str =  f.decl().expr.toString();
 								out.println(str);
 								String [] lines = str.split("this . \\(this/| <: | |\\) -> |\\)");
+								for (String stra : lines){
+									out.println(stra);
+								}
 								String fName1 = lines[2];//floor
 								String fName2 = lines[5];//ceiling
 								out.println("\t\tContract.Invariant(" + cpName + " != null && " + fName1 + " != null && Contract.ForAll(" + cpName + ", e1 => " + 
