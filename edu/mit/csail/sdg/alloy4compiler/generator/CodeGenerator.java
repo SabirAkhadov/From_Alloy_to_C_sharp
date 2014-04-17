@@ -62,9 +62,6 @@ public final class CodeGenerator {
 					out.println("\t\t}");
 					out.println("\t}");
 				}
-				if (s.toString().substring(5).equals("Account")){
-					out.println("  public Account() {\nstatus = new Open();}");
-				}
 				// Invariants
 				if (!s.getFields().isEmpty()) {
 					out.println("\n\t[ContractInvariantMethod]");
@@ -102,14 +99,21 @@ public final class CodeGenerator {
 					for (Field f : crossPFields) {
 						String cpName = f.label;
 						String str = f.decl().expr.toString();
-						//out.println(str.split("this").length); // gives 4 if known-> Date, 5 for known -> known
 						if (str.split("this").length < 5){
 							String []lines = str.split("this . \\(this/| <: |\\) -> this/");
 							String fName1 = lines [2]; //known 
+							if (str.startsWith("this/")){
+								fName1 = fName1.substring(0, fName1.length()-1);
+								out.println("\t\tContract.Invariant(" + cpName //date
+										+ " != null && " + fName1
+										+ " != null && Contract.ForAll(" + cpName
+										+ ", e1 => e1.Item1 != null && " + fName1 + ".Equals(e1.Item2)));");
+							}else{
 							out.println("\t\tContract.Invariant(" + cpName //date
 									+ " != null && " + fName1
 									+ " != null && Contract.ForAll(" + cpName
 									+ ", e1 => " + fName1 + ".Equals(e1.Item1) && e1.Item2 != null));");
+							}
 							
 						}else{
 						
