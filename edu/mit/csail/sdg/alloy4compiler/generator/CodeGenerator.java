@@ -24,6 +24,9 @@ public final class CodeGenerator {
 	  VisitorFunc visitorFunc = new VisitorFunc(out);
 	  out.println("// This C# file is generated from .." + originalFilename);
 	  out.println();
+	  if (!checkContracts) {
+		  out.println("#undef CONTRACTS_FULL");
+	  }
 	  out.println("using System;\nusing System.Linq;\nusing System.Collections.Generic;\nusing System.Diagnostics.Contracts;");
 	  out.println();
 	  
@@ -64,14 +67,15 @@ public final class CodeGenerator {
 									}else{
 										out.println("\t\tContract.Invariant(" + fName + " != null && Contract.ForAll(" + fName + ", e1 => e1.Item1 != null && e1.Item2 != null));");
 									}
-								}else{
+								}else if (!f.decl().expr.toString().startsWith("lone ")){
+									//lone fields can be null
+									out.print("\t\tContract.Invariant(");
+									out.print(fName);
+									out.println(" != null);");
 									if (f.decl().expr.setOf().toString().substring(0, 10).contains("set")){ // its a set
 										out.println("\t\tContract.Invariant(Contract.ForAll(" + fName + " != null));"); //TODO I hope this is how it should look
-									}else{
-										out.print("\t\tContract.Invariant(");
-										out.print(fName);
-										out.println(" != null);");
 									}
+									
 								}
 							}
 							for (Field f : crossPFields){
