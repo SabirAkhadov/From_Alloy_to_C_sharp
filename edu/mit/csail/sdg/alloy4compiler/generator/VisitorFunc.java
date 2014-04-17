@@ -4,8 +4,6 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import kodkod.ast.Decls;
-import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4compiler.ast.Decl;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprBinary;
@@ -25,6 +23,8 @@ import edu.mit.csail.sdg.alloy4compiler.ast.VisitQuery;
 public class VisitorFunc extends VisitQuery<Object> {
 	protected final PrintWriter out;
 	public String Closurefunction = "";
+	public String specialPreConditions = "";
+	public String specialPostConditions = "";
 	private String makeClosureFunction(String LType, String RType) {
 		StringBuilder out = new StringBuilder();
 		out.append("public static class Helper {\n");
@@ -56,6 +56,39 @@ public class VisitorFunc extends VisitQuery<Object> {
 		return out.toString();
 	}
 	
+	class ArgVisitor extends VisitQuery<Object> {
+		@Override
+		public Object visit(ExprUnary x) {
+			switch(x.op){
+				case SOME:
+				case SOMEOF:
+					return "ISet<";
+			}
+			return null;
+		}
+		
+		@Override
+		public Object visit (ExprBinary x) {
+			switch (x.op) {
+				case ANY_ARROW_LONE:
+					return "__expr__.All(el => (__expr__.First().Item2 == null || __expr__.First().Item2.Equals(el.Item2)))";
+				case ANY_ARROW_ONE:
+					return "__expr__.All(el => (__expr__.First().Item2.Equals(el.Item2)))";
+				case ANY_ARROW_SOME:
+					return null;
+				case ONE_ARROW_ANY:
+				case ONE_ARROW_SOME:
+					return "__expr__.All(el => (__expr__.First().Item1.Equals(el.Item1)))";
+					
+				case ONE_ARROW_LONE:
+					return "__expr__.All(el => (__expr__.First().Item1 == null || __expr__.First().Item2.Equals(el.Item1)))";
+				case ONE_ARROW_ONE:
+					return "__expr__.All(el => (__expr__.First().Item1.Equals(el.Item1) && __expr__.First().Item2.Equals(el.Item2)))";
+			}
+			return null;
+		}
+	}
+	
 	public VisitorFunc(PrintWriter out) {
 		this.out = out;
 	}
@@ -77,6 +110,8 @@ public class VisitorFunc extends VisitQuery<Object> {
 			return type + " " + name;
 		}
 	}
+	
+	
 	
 	public String argumentsNotNullContracts(List<Argument> args) {
 		StringBuilder res = new StringBuilder();
@@ -112,13 +147,21 @@ public class VisitorFunc extends VisitQuery<Object> {
 		if (f.isPred) {
 			return "bool";
 		}
-		else if (f.returnDecl instanceof ExprUnary) {
-			ExprUnary expr = ((ExprUnary)f.returnDecl);
-			if (expr.op == Op.SOME || expr.op == Op.SOMEOF) {
-				return "ISet<" + parseSigListToType(f.returnDecl.type().fold().get(0)) + ">";
-			}
+		ArgVisitor argVisitor = new ArgVisitor();
+		String res = null;
+		try {
+			res = (String)f.returnDecl.accept(argVisitor);
+		} catch (Err e) {
+			e.printStackTrace();
 		}
-		return parseSigListToType(f.returnDecl.type().fold().get(0));
+		if (f.returnDecl instanceof ExprUnary && res != null) {
+			return "ISet<" + parseSigListToType(f.returnDecl.type().fold().get(0)) + ">";
+		}
+		String type = parseSigListToType(f.returnDecl.type().fold().get(0));
+		if (res != null) {
+			specialPostConditions += "\t\tContract.Ensures(" + res.replace("__expr__", "Contract.Result<" + type + ">()") + ");\n";
+		}
+		return type;
 	}
 	public String parseSigListToType(List<PrimSig> types) {
 		
@@ -137,16 +180,25 @@ public class VisitorFunc extends VisitQuery<Object> {
 	}
 	
 	public List<Argument> parseFuncParams(Func f) throws Err {
-		List<Argument> res = new ArrayList<Argument>();
+		List<Argument> result = new ArrayList<Argument>();
 		List<String> isSome = new ArrayList<String>(); 
 		for (Decl decl : f.decls) {
-			if (!(decl.expr instanceof ExprUnary)) {
-				continue;
+			String res = null;
+			ArgVisitor argVisitor = new ArgVisitor();
+			try {
+				res = (String)decl.expr.accept(argVisitor);
 			}
-			ExprUnary expr = ((ExprUnary)decl.expr);
-			if (expr.op == Op.SOME || expr.op == Op.SOMEOF) {
+			catch (Exception e){
+				e.printStackTrace();
+			}
+			if (decl.expr instanceof ExprUnary && res != null) {
 				for (ExprHasName name : decl.names) {
 					isSome.add(name.label);
+				}
+			}
+			else if (res != null) {
+				for (ExprHasName name : decl.names) {
+					specialPreConditions += "\t\tContract.Requires(" + res.replace("__expr__", name.label) + ");\n";
 				}
 			}
 		}
@@ -154,13 +206,13 @@ public class VisitorFunc extends VisitQuery<Object> {
 			ExprVar p = f.params().get(i);
 			String type = parseSigListToType(p.type().fold().get(0));
 			if (isSome.contains(p.label)) {
-				res.add(new Argument("ISet<" + type + ">", p.label));
+				result.add(new Argument("ISet<" + type + ">", p.label));
 			}
 			else {
-				res.add(new Argument(type, p.label));
+				result.add(new Argument(type, p.label));
 			}
 		}
-		return res;
+		return result;
 	}
 	
 	@Override 
