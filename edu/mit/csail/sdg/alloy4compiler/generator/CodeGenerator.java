@@ -163,6 +163,8 @@ public final class CodeGenerator {
 				out.print("\t\t" + visitorFunc.argumentsNotNullContracts(args));
 				out.println("\t\t"
 						+ visitorFunc.returnValueNotNullContract(returnType));
+				out.print(visitorFunc.specialPostConditions);
+				out.print(visitorFunc.specialPreConditions);
 				out.print("\t\treturn ");
 				f.getBody().accept(visitorFunc);
 				out.println(";");
