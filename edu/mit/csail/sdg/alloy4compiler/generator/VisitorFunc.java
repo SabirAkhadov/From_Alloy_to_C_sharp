@@ -6,7 +6,9 @@ import java.util.List;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4compiler.ast.Decl;
+import edu.mit.csail.sdg.alloy4compiler.ast.Expr;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprBinary;
+import edu.mit.csail.sdg.alloy4compiler.ast.ExprCall;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprConstant;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprHasName;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary;
@@ -269,6 +271,21 @@ public class VisitorFunc extends VisitQuery<Object> {
 		}
 		
 		
+		return null;
+	}
+	
+	@Override 
+	public Object visit(ExprCall x) throws Err {
+		out.print("(FuncClass.");
+		out.print(x.fun.label.substring(5));
+		out.print("(");
+		for (int i = 0; i < x.args.size(); i++) {
+			out.print(((ExprVar)((ExprUnary)x.args.get(i)).sub).label);
+			if (i < x.args.size()-1) {
+				out.print(", ");
+			}
+		}
+		out.print("))");
 		return null;
 	}
 	
