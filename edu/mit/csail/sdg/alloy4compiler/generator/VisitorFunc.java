@@ -4,9 +4,13 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
+import kodkod.ast.Decls;
+import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
+import edu.mit.csail.sdg.alloy4compiler.ast.Decl;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprBinary;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprConstant;
+import edu.mit.csail.sdg.alloy4compiler.ast.ExprHasName;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprUnary.Op;
 import edu.mit.csail.sdg.alloy4compiler.ast.ExprVar;
@@ -108,11 +112,16 @@ public class VisitorFunc extends VisitQuery<Object> {
 		if (f.isPred) {
 			return "bool";
 		}
-		else {
-			return parseSigListToType(f.returnDecl.type().fold().get(0));
+		else if (f.returnDecl instanceof ExprUnary) {
+			ExprUnary expr = ((ExprUnary)f.returnDecl);
+			if (expr.op == Op.SOME || expr.op == Op.SOMEOF) {
+				return "ISet<" + parseSigListToType(f.returnDecl.type().fold().get(0)) + ">";
+			}
 		}
+		return parseSigListToType(f.returnDecl.type().fold().get(0));
 	}
 	public String parseSigListToType(List<PrimSig> types) {
+		
 		StringBuilder res = new StringBuilder();
 		if (types.size() == 2) {
 			res.append("ISet<Tuple<");
@@ -127,11 +136,29 @@ public class VisitorFunc extends VisitQuery<Object> {
 		return res.toString();
 	}
 	
-	public List<Argument> parseFuncParams(Func f) {
+	public List<Argument> parseFuncParams(Func f) throws Err {
 		List<Argument> res = new ArrayList<Argument>();
+		List<String> isSome = new ArrayList<String>(); 
+		for (Decl decl : f.decls) {
+			if (!(decl.expr instanceof ExprUnary)) {
+				continue;
+			}
+			ExprUnary expr = ((ExprUnary)decl.expr);
+			if (expr.op == Op.SOME || expr.op == Op.SOMEOF) {
+				for (ExprHasName name : decl.names) {
+					isSome.add(name.label);
+				}
+			}
+		}
 		for (int i = 0; i < f.params().size(); i++) {
 			ExprVar p = f.params().get(i);
-			res.add(new Argument(parseSigListToType(p.type().fold().get(0)), p.label));
+			String type = parseSigListToType(p.type().fold().get(0));
+			if (isSome.contains(p.label)) {
+				res.add(new Argument("ISet<" + type + ">", p.label));
+			}
+			else {
+				res.add(new Argument(type, p.label));
+			}
 		}
 		return res;
 	}
@@ -178,11 +205,10 @@ public class VisitorFunc extends VisitQuery<Object> {
 			case RCLOSURE:
 			case CLOSURE:
 				if (x.op == Op.RCLOSURE)
-					out.print("\t\treturn Helper.RClosure(");
+					out.print("Helper.RClosure(");
 				else
-					out.print("\t\treturn Helper.Closure(");
+					out.print("Helper.Closure(");
 				x.sub.accept(this);
-				out.print(");");
 				Closurefunction = makeClosureFunction(x.type().fold().get(0).get(0).label.substring(5), x.type().fold().get(0).get(1).label.substring(5));
 				break;
 			default:
