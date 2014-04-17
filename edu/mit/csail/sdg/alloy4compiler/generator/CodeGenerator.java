@@ -64,7 +64,9 @@ public final class CodeGenerator {
 					out.println("\t\t}");
 					out.println("\t}");
 				}
-
+				if (s.toString().substring(5).equals("Account")){
+					out.println("  public Account() {\nstatus = new Open();}");
+				}
 				// Invariants
 				if (!s.getFields().isEmpty()) {
 					out.println("\n\t[ContractInvariantMethod]");

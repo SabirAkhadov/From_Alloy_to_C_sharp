@@ -20,7 +20,7 @@ public class VisitorAssertions extends VisitorFunc {
 	@Override 
 	public Object visit(ExprUnary x) throws Err {
 		if (x.toString().equals("0 = 1")) {
-			out.print("true");
+			out.print("false");
 			return null;
 		}
 		switch (x.op) {
