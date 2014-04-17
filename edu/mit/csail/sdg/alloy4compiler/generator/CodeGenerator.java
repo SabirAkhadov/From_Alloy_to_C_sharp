@@ -156,22 +156,14 @@ public final class CodeGenerator {
 			out.print("(");
 			out.print(visitorFunc.joinArgumentList());
 			out.println(") {");
-			if (f.isPred) {
-				// predicates
-				out.print("\t\treturn ");
-				f.getBody().accept(visitorFunc);
-				out.println(";");
-				out.println("\t}");
-			} else {
-				out.print(visitorFunc.argumentsNotNullContracts());
-				out.println(visitorFunc.returnValueNotNullContract());
-				out.print(visitorFunc.specialPostConditions);
-				out.print(visitorFunc.specialPreConditions);
-				out.print("\t\treturn ");
-				f.getBody().accept(visitorFunc);
-				out.println(";");
-				out.println("\t}");
-			}
+			out.print(visitorFunc.argumentsNotNullContracts());
+			out.println(visitorFunc.returnValueNotNullContract());
+			out.print(visitorFunc.specialPostConditions);
+			out.print(visitorFunc.specialPreConditions);
+			out.print("\t\treturn ");
+			f.getBody().accept(visitorFunc);
+			out.println(";");
+			out.println("\t}");
 			specialFunctions += visitorFunc.SpecialFunctions;
 		}
 		out.println(closeBracket);
